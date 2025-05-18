@@ -18,10 +18,26 @@ class ReorderPointController extends Controller
         return view('reorder_point.index', compact('reorderPoints'));
     }
 
-    public function create()
+    public function create(Request $request)
     {
         $barangs = Barang::where('stok', '>', 0)->get();
-        return view('reorder_point.create', compact('barangs'));
+        $selectedBarangId = $request->input('barang_id');
+        $safetyStock = 0;
+
+        if ($selectedBarangId) {
+            // Ambil safety stock terakhir untuk barang ini
+            $safetyStockData = SafetyStock::where('barang_id', $selectedBarangId)
+                ->latest()
+                ->first();
+
+            $safetyStock = $safetyStockData ? $safetyStockData->hasil : 0;
+        }
+
+        return view('reorder_point.create', compact(
+            'barangs',
+            'selectedBarangId',
+            'safetyStock'
+        ));
     }
 
     public function store(Request $request)
@@ -30,26 +46,22 @@ class ReorderPointController extends Controller
             'barang_id' => 'required|exists:barang,id',
             'safety_stock' => 'required|numeric|min:0',
             'lead_time' => 'required|numeric|min:0',
+            'permintaan_per_periode' => 'required|numeric|min:0',
+            'total_hari_kerja' => 'required|numeric|min:1',
         ]);
 
-        // Ambil data pemakaian rata-rata
-        $bulan = now()->format('m');
-        $tahun = now()->format('Y');
+        // Hitung permintaan harian (d/hari kerja)
+        $permintaanHarian = $request->permintaan_per_periode / $request->total_hari_kerja;
 
-        $pemakaianRataRata = DB::table('barang_keluar')
-            ->select(DB::raw('CEILING(AVG(jumlah)) as rata_rata'))
-            ->where('barang_id', $request->barang_id)
-            ->whereMonth('tanggal', $bulan)
-            ->whereYear('tanggal', $tahun)
-            ->first()->rata_rata ?? 0;
-
-        // Hitung reorder point: ROP = SS + (LT × d)
-        $hasil = $request->safety_stock + ($request->lead_time * $pemakaianRataRata);
+        // Hitung reorder point: ROP = SS + (LT × (d/hari kerja))
+        $hasil = $request->safety_stock + ($request->lead_time * $permintaanHarian);
 
         ReorderPoint::create([
             'barang_id' => $request->barang_id,
             'safety_stock' => $request->safety_stock,
             'lead_time' => $request->lead_time,
+            'permintaan_per_periode' => $request->permintaan_per_periode,
+            'total_hari_kerja' => $request->total_hari_kerja,
             'hasil' => $hasil
         ]);
 
@@ -77,24 +89,47 @@ class ReorderPointController extends Controller
     {
         $reorderPoint = ReorderPoint::findOrFail($id);
 
-        // Ambil data pemakaian rata-rata
-        $bulan = now()->format('m');
-        $tahun = now()->format('Y');
+        // Hitung permintaan harian (d/hari kerja)
+        $permintaanHarian = $reorderPoint->permintaan_per_periode / $reorderPoint->total_hari_kerja;
 
-        $pemakaianRataRata = DB::table('barang_keluar')
-            ->select(DB::raw('CEILING(AVG(jumlah)) as rata_rata'))
-            ->where('barang_id', $reorderPoint->barang_id)
-            ->whereMonth('tanggal', $bulan)
-            ->whereYear('tanggal', $tahun)
-            ->first()->rata_rata ?? 0;
-
-        // Hitung ulang reorder point
-        $hasil = $reorderPoint->safety_stock + ($reorderPoint->lead_time * $pemakaianRataRata);
+        // Hitung ulang reorder point: ROP = SS + (LT × (d/hari kerja))
+        $hasil = $reorderPoint->safety_stock + ($reorderPoint->lead_time * $permintaanHarian);
 
         $reorderPoint->hasil = $hasil;
         $reorderPoint->save();
 
         return redirect()->route('reorder-point.index')
             ->with('success', 'Reorder Point berhasil dihitung.');
+    }
+
+    public function edit($id)
+    {
+        $reorderPoint = ReorderPoint::with('barang')->findOrFail($id);
+        return view('reorder_point.edit', compact('reorderPoint'));
+    }
+
+    public function update(Request $request, $id)
+    {
+        $request->validate([
+            'lead_time' => 'required|numeric|min:0',
+            'permintaan_per_periode' => 'required|numeric|min:0',
+            'total_hari_kerja' => 'required|numeric|min:1',
+        ]);
+
+        $reorderPoint = ReorderPoint::findOrFail($id);
+
+        // Update data
+        $reorderPoint->lead_time = $request->lead_time;
+        $reorderPoint->permintaan_per_periode = $request->permintaan_per_periode;
+        $reorderPoint->total_hari_kerja = $request->total_hari_kerja;
+
+        // Hitung ulang ROP
+        $permintaanHarian = $request->permintaan_per_periode / $request->total_hari_kerja;
+        $reorderPoint->hasil = $reorderPoint->safety_stock + ($request->lead_time * $permintaanHarian);
+
+        $reorderPoint->save();
+
+        return redirect()->route('reorder-point.index')
+            ->with('success', 'Reorder Point berhasil diperbarui.');
     }
 }
