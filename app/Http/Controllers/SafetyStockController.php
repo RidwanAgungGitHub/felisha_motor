@@ -17,10 +17,44 @@ class SafetyStockController extends Controller
         return view('safety_stock.index', compact('safetyStocks'));
     }
 
-    public function create()
+    public function create(Request $request)
     {
         $barangs = Barang::where('stok', '>', 0)->get();
-        return view('safety_stock.create', compact('barangs'));
+        $selectedBarangId = $request->input('barang_id');
+        $pemakaianMaksimum = 0;
+        $pemakaianRataRata = 0;
+
+        if ($selectedBarangId) {
+            $bulan = now()->format('m');
+            $tahun = now()->format('Y');
+
+            // Menghitung jumlah hari dalam bulan
+            $jumlahHari = cal_days_in_month(CAL_GREGORIAN, $bulan, $tahun);
+
+            // Ambil data pemakaian maksimum (dari transaksi terbesar)
+            $pemakaianMaksimum = DB::table('barang_keluar')
+                ->where('barang_id', $selectedBarangId)
+                ->whereMonth('tanggal', $bulan)
+                ->whereYear('tanggal', $tahun)
+                ->max('jumlah') ?? 0;
+
+            // Ambil total pemakaian dalam sebulan
+            $totalPemakaian = DB::table('barang_keluar')
+                ->where('barang_id', $selectedBarangId)
+                ->whereMonth('tanggal', $bulan)
+                ->whereYear('tanggal', $tahun)
+                ->sum('jumlah') ?? 0;
+
+            // Hitung rata-rata pemakaian per hari
+            $pemakaianRataRata = $jumlahHari > 0 ? ceil($totalPemakaian / $jumlahHari) : 0;
+        }
+
+        return view('safety_stock.create', compact(
+            'barangs',
+            'selectedBarangId',
+            'pemakaianMaksimum',
+            'pemakaianRataRata'
+        ));
     }
 
     public function store(Request $request)
@@ -93,5 +127,32 @@ class SafetyStockController extends Controller
 
         return redirect()->route('safety-stock.index')
             ->with('success', 'Safety Stock berhasil dihitung.');
+    }
+
+    public function edit($id)
+    {
+        $safetyStock = SafetyStock::with('barang')->findOrFail($id);
+        return view('safety_stock.edit', compact('safetyStock'));
+    }
+
+    public function update(Request $request, $id)
+    {
+        $request->validate([
+            'lead_time' => 'required|numeric|min:0',
+        ]);
+
+        $safetyStock = SafetyStock::findOrFail($id);
+
+        // Hanya update lead time
+        $safetyStock->lead_time = $request->lead_time;
+
+        // Hitung ulang safety stock
+        $hasil = ($safetyStock->pemakaian_maksimum - $safetyStock->pemakaian_rata_rata) * $request->lead_time;
+        $safetyStock->hasil = $hasil;
+
+        $safetyStock->save();
+
+        return redirect()->route('safety-stock.index')
+            ->with('success', 'Safety Stock berhasil diperbarui.');
     }
 }
