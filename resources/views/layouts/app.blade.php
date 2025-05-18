@@ -118,9 +118,9 @@
                         </a>
                     </li>
                     <li class="nav-item">
-                        <a href="{{ route('inventori-management.index') }}"
+                        <a href="{{ route('reports.inventory-status') }}"
                             class="nav-link {{ request()->routeIs('inventori-management.*') ? 'active' : '' }}">
-                            <i class="fas fa-boxes"></i> Inventori Management
+                            <i class="fas fa-boxes"></i> Report Inventory
                         </a>
                     </li>
                     <li class="nav-item">

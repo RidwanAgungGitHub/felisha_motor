@@ -10,7 +10,6 @@ use App\Http\Controllers\BarangKeluarController;
 use App\Http\Controllers\SafetyStockController;
 use App\Http\Controllers\ReorderPointController;
 use App\Http\Controllers\ReportController;
-use App\Http\Controllers\InventoriManagementController;
 /*
 |--------------------------------------------------------------------------
 | Web Routes
@@ -67,18 +66,18 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/safety-stock/{id}/edit', [SafetyStockController::class, 'edit'])->name('safety-stock.edit');
     Route::put('/safety-stock/{id}', [SafetyStockController::class, 'update'])->name('safety-stock.update');
 
-    // Reorder Point Routes
+
+    // Routes untuk Reorder Point
     Route::get('/reorder-point', [ReorderPointController::class, 'index'])->name('reorder-point.index');
     Route::get('/reorder-point/create', [ReorderPointController::class, 'create'])->name('reorder-point.create');
     Route::post('/reorder-point', [ReorderPointController::class, 'store'])->name('reorder-point.store');
-    Route::get('/reorder-point/get-safety-stock', [ReorderPointController::class, 'getSafetyStock'])->name('reorder-point.get-safety-stock');
+    Route::get('/reorder-point/{id}/edit', [ReorderPointController::class, 'edit'])->name('reorder-point.edit'); // Route baru
+    Route::put('/reorder-point/{id}', [ReorderPointController::class, 'update'])->name('reorder-point.update'); // Route baru
     Route::post('/reorder-point/{id}/calculate', [ReorderPointController::class, 'calculate'])->name('reorder-point.calculate');
+    Route::get('/reorder-point/get-safety-stock', [ReorderPointController::class, 'getSafetyStock'])->name('reorder-point.get-safety-stock');
 
-
-    // Inventory Management unified view
-    Route::get('/inventori-management', [InventoriManagementController::class, 'index'])->name('inventori-management.index');
-
-    // Reports
-    Route::get('/reports/inventory-status', [ReportController::class, 'inventoryStatus'])->name('reports.inventory-status');
-    Route::get('/reports/inventory-status/export', [ReportController::class, 'exportInventoryStatus'])->name('reports.inventory-status.export');
+    // Laporan Status Inventori
+    Route::get('/reports/inventory-status', [App\Http\Controllers\ReportController::class, 'inventoryStatus'])->name('reports.inventory-status');
+    Route::get('/reports/inventory-status/export', [App\Http\Controllers\ReportController::class, 'exportInventoryStatus'])->name('reports.inventory-status.export');
+    Route::get('/reports/inventory-status/print', [App\Http\Controllers\ReportController::class, 'printInventoryStatus'])->name('reports.inventory-status.print');
 });

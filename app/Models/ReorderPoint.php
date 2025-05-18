@@ -15,6 +15,8 @@ class ReorderPoint extends Model
         'barang_id',
         'safety_stock',
         'lead_time',
+        'permintaan_per_periode',
+        'total_hari_kerja',
         'hasil'
     ];
 
