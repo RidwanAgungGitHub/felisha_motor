@@ -43,11 +43,16 @@
                                             <td>{{ $ss->lead_time }} hari</td>
                                             <td>{{ number_format($ss->hasil, 0) }} {{ $ss->barang->satuan }}</td>
                                             <td>
-                                                <form action="{{ route('safety-stock.calculate', $ss->id) }}"
-                                                    method="POST">
-                                                    @csrf
-                                                    <button type="submit" class="btn btn-sm btn-info">Hitung Ulang</button>
-                                                </form>
+                                                <div class="btn-group">
+                                                    <a href="{{ route('safety-stock.edit', $ss->id) }}"
+                                                        class="btn btn-sm btn-warning me-1">Edit</a>
+                                                    <form action="{{ route('safety-stock.calculate', $ss->id) }}"
+                                                        method="POST">
+                                                        @csrf
+                                                        <button type="submit" class="btn btn-sm btn-info">Hitung
+                                                            Ulang</button>
+                                                    </form>
+                                                </div>
                                             </td>
                                         </tr>
                                     @empty

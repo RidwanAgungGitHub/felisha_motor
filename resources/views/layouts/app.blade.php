@@ -117,12 +117,12 @@
                             <i class="fas fa-cash-register"></i> Safety Stock
                         </a>
                     </li>
-                    {{-- <li class="nav-item">
-                        <a href="{{ route('inventori-management') }}"
-                            class="nav-link {{ request()->routeIs('inventori-management') ? 'active' : '' }}">
-                            <i class="fas fa-cash-register"></i> Inventori Management
+                    <li class="nav-item">
+                        <a href="{{ route('inventori-management.index') }}"
+                            class="nav-link {{ request()->routeIs('inventori-management.*') ? 'active' : '' }}">
+                            <i class="fas fa-boxes"></i> Inventori Management
                         </a>
-                    </li> --}}
+                    </li>
                     <li class="nav-item">
                         <a href="{{ route('supplier.index') }}"
                             class="nav-link {{ request()->routeIs('supplier.*') ? 'active' : '' }}">

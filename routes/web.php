@@ -64,6 +64,8 @@ Route::middleware(['auth'])->group(function () {
     Route::post('/safety-stock', [SafetyStockController::class, 'store'])->name('safety-stock.store');
     Route::get('/safety-stock/get-barang-data', [SafetyStockController::class, 'getBarangData'])->name('safety-stock.get-barang-data');
     Route::post('/safety-stock/{id}/calculate', [SafetyStockController::class, 'calculate'])->name('safety-stock.calculate');
+    Route::get('/safety-stock/{id}/edit', [SafetyStockController::class, 'edit'])->name('safety-stock.edit');
+    Route::put('/safety-stock/{id}', [SafetyStockController::class, 'update'])->name('safety-stock.update');
 
     // Reorder Point Routes
     Route::get('/reorder-point', [ReorderPointController::class, 'index'])->name('reorder-point.index');
