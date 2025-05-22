@@ -55,6 +55,7 @@ class ReportController extends Controller
                 'satuan' => $barang->satuan,
                 'safety_stock' => $safetyStock ? $safetyStock->hasil : null,
                 'reorder_point' => $reorderPoint ? $reorderPoint->hasil : null,
+                'period' => $reorderPoint ? $reorderPoint->period : null,
                 'status' => $status,
                 'status_class' => $statusClass,
             ];
@@ -93,6 +94,7 @@ class ReportController extends Controller
                 'satuan' => $barang->satuan,
                 'safety_stock' => $safetyStock ? $safetyStock->hasil : '-',
                 'reorder_point' => $reorderPoint ? $reorderPoint->hasil : '-',
+                'period' => $reorderPoint ? $reorderPoint->period : '-',
                 'status' => $status,
             ];
         }
@@ -108,7 +110,8 @@ class ReportController extends Controller
         $sheet->setCellValue('D1', 'Stok Saat Ini');
         $sheet->setCellValue('E1', 'Safety Stock');
         $sheet->setCellValue('F1', 'Reorder Point');
-        $sheet->setCellValue('G1', 'Status');
+        $sheet->setCellValue('G1', 'Period');
+        $sheet->setCellValue('H1', 'Status');
 
         // Style the header row
         $headerStyle = [
@@ -132,7 +135,7 @@ class ReportController extends Controller
             ],
         ];
 
-        $sheet->getStyle('A1:G1')->applyFromArray($headerStyle);
+        $sheet->getStyle('A1:H1')->applyFromArray($headerStyle);
 
         // Fill data
         $row = 2;
@@ -143,10 +146,11 @@ class ReportController extends Controller
             $sheet->setCellValue('D' . $row, $item['stok'] . ' ' . $item['satuan']);
             $sheet->setCellValue('E' . $row, is_numeric($item['safety_stock']) ? $item['safety_stock'] . ' ' . $item['satuan'] : '-');
             $sheet->setCellValue('F' . $row, is_numeric($item['reorder_point']) ? $item['reorder_point'] . ' ' . $item['satuan'] : '-');
-            $sheet->setCellValue('G' . $row, $item['status']);
+            $sheet->setCellValue('G' . $row, $item['period']);
+            $sheet->setCellValue('H' . $row, $item['status']);
 
             // Apply cell style
-            $sheet->getStyle('A' . $row . ':G' . $row)->applyFromArray([
+            $sheet->getStyle('A' . $row . ':H' . $row)->applyFromArray([
                 'borders' => [
                     'allBorders' => [
                         'borderStyle' => Border::BORDER_THIN,
@@ -158,7 +162,7 @@ class ReportController extends Controller
         }
 
         // Auto fit column widths
-        foreach (range('A', 'G') as $column) {
+        foreach (range('A', 'H') as $column) {
             $sheet->getColumnDimension($column)->setAutoSize(true);
         }
 
@@ -217,6 +221,7 @@ class ReportController extends Controller
                 'satuan' => $barang->satuan,
                 'safety_stock' => $safetyStock ? $safetyStock->hasil : null,
                 'reorder_point' => $reorderPoint ? $reorderPoint->hasil : null,
+                'period' => $reorderPoint ? $reorderPoint->period : null,
                 'status' => $status,
                 'status_class' => $statusClass,
             ];

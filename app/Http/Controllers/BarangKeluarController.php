@@ -8,6 +8,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Str;
+use Carbon\Carbon;
 
 class BarangKeluarController extends Controller
 {
@@ -18,7 +19,6 @@ class BarangKeluarController extends Controller
         $tahun = $request->input('tahun', now()->format('Y'));
 
         // Data untuk tabel pertama (semua histori barang keluar)
-        // Filter berdasarkan bulan dan tahun jika ada parameter
         $barangKeluarQuery = BarangKeluar::with('barang');
         if ($bulan && $tahun) {
             $barangKeluarQuery->whereMonth('tanggal', $bulan)
@@ -26,29 +26,73 @@ class BarangKeluarController extends Controller
         }
         $barangKeluar = $barangKeluarQuery->latest()->get();
 
-        // Data untuk tabel kedua (dikelompokkan per bulan)
-        // Menggunakan query builder untuk mengelompokkan data
+        // Menghitung jumlah hari aktif (hari dimana ada transaksi) untuk setiap barang
+        $hariAktifPerBarang = [];
+        $totalHariAktif = 0;
+
+        // Dapatkan tanggal awal dan akhir bulan
+        $awalBulan = Carbon::createFromDate($tahun, $bulan, 1)->startOfDay();
+        $akhirBulan = Carbon::createFromDate($tahun, $bulan, 1)->endOfMonth()->endOfDay();
+
+        // Dapatkan hari aktif untuk perhitungan keseluruhan (jumlah hari unik dengan transaksi)
+        $hariAktifGlobal = DB::table('barang_keluar')
+            ->whereMonth('tanggal', $bulan)
+            ->whereYear('tanggal', $tahun)
+            ->selectRaw('COUNT(DISTINCT DATE(tanggal)) as jumlah_hari_aktif')
+            ->first();
+
+        $totalHariAktif = $hariAktifGlobal->jumlah_hari_aktif ?? 1; // Default to 1 to avoid division by zero
+
+        // Jika tidak ada hari aktif (tidak ada transaksi bulan ini), gunakan 1 untuk menghindari division by zero
+        if ($totalHariAktif == 0) {
+            $totalHariAktif = 1;
+        }
+
+        // Hitung hari aktif per barang (jumlah hari unik dengan transaksi untuk setiap barang)
+        $hariAktifPerBarangData = DB::table('barang_keluar')
+            ->whereMonth('tanggal', $bulan)
+            ->whereYear('tanggal', $tahun)
+            ->groupBy('barang_id')
+            ->select(
+                'barang_id',
+                DB::raw('COUNT(DISTINCT DATE(tanggal)) as jumlah_hari_aktif')
+            )
+            ->get();
+
+        foreach ($hariAktifPerBarangData as $item) {
+            $hariAktifPerBarang[$item->barang_id] = $item->jumlah_hari_aktif > 0 ? $item->jumlah_hari_aktif : 1;
+        }
+
+        // Data untuk tabel kedua (dikelompokkan per barang per bulan)
         $barangKeluarBulanan = DB::table('barang_keluar')
             ->join('barang', 'barang_keluar.barang_id', '=', 'barang.id')
             ->select(
+                'barang.id as barang_id',
                 'barang.nama_barang',
                 'barang.merek',
                 'barang.satuan',
                 DB::raw('SUM(barang_keluar.jumlah) as total_jumlah'),
                 DB::raw('SUM(barang_keluar.total_harga) as total_harga'),
-                DB::raw("DATE_FORMAT(barang_keluar.tanggal, '%m/%Y') as bulan"),
-                // Hitung jumlah hari dalam bulan yang dipilih
-                DB::raw("DAY(LAST_DAY(CONCAT('$tahun-$bulan-01'))) as jumlah_hari"),
-                // Hitung rata-rata per hari (dibulatkan ke integer)
-                DB::raw("CEILING(SUM(barang_keluar.jumlah) / DAY(LAST_DAY(CONCAT('$tahun-$bulan-01')))) as rata_per_hari")
+                DB::raw("DATE_FORMAT(barang_keluar.tanggal, '%m/%Y') as bulan")
             )
             ->whereMonth('barang_keluar.tanggal', $bulan)
             ->whereYear('barang_keluar.tanggal', $tahun)
-            ->groupBy('barang.nama_barang', 'barang.merek', 'barang.satuan', 'bulan')
+            ->groupBy('barang.id', 'barang.nama_barang', 'barang.merek', 'barang.satuan', 'bulan')
             ->orderBy('barang.nama_barang')
             ->get();
 
-        // Mengambil daftar bulan yang tersedia untuk dropdown filter
+        // Menghitung rata-rata per hari aktif untuk setiap item
+        $totalJumlah = 0;
+        foreach ($barangKeluarBulanan as $item) {
+            // Menggunakan jumlah hari aktif transaksi untuk barang ini, default = 1 jika tidak ada
+            $hariAktif = $hariAktifPerBarang[$item->barang_id] ?? 1;
+
+            $item->jumlah_hari_aktif = $hariAktif;
+            $item->rata_per_hari = ceil($item->total_jumlah / $hariAktif);
+            $totalJumlah += $item->total_jumlah;
+        }
+
+        // Mengambil daftar bulan dan tahun yang tersedia
         $availableMonths = DB::table('barang_keluar')
             ->select(DB::raw('DISTINCT MONTH(tanggal) as bulan'))
             ->orderBy('bulan')
@@ -56,7 +100,6 @@ class BarangKeluarController extends Controller
             ->pluck('bulan')
             ->toArray();
 
-        // Mengambil daftar tahun yang tersedia untuk dropdown filter
         $availableYears = DB::table('barang_keluar')
             ->select(DB::raw('DISTINCT YEAR(tanggal) as tahun'))
             ->orderBy('tahun', 'desc')
@@ -64,7 +107,7 @@ class BarangKeluarController extends Controller
             ->pluck('tahun')
             ->toArray();
 
-        // Jika tidak ada data tersedia, tetapkan nilai default
+        // Jika tidak ada data, tetapkan nilai default
         if (empty($availableMonths)) {
             $availableMonths = [now()->format('m')];
         }
@@ -73,8 +116,12 @@ class BarangKeluarController extends Controller
             $availableYears = [now()->format('Y')];
         }
 
-        // Variabel untuk tab aktif (disimpan di session atau dari request)
+        // Variabel untuk tab aktif
         $activeTab = $request->input('tab', 'histori');
+
+        // Menghitung total rata-rata per hari
+        $totalRataPerHari = $totalHariAktif > 0 ? ceil($totalJumlah / $totalHariAktif) : 0;
+        $totalHarga = $barangKeluarBulanan->sum('total_harga');
 
         return view('barang_keluar.index', compact(
             'barangKeluar',
@@ -83,7 +130,11 @@ class BarangKeluarController extends Controller
             'tahun',
             'availableMonths',
             'availableYears',
-            'activeTab'
+            'activeTab',
+            'totalJumlah',
+            'totalRataPerHari',
+            'totalHarga',
+            'totalHariAktif'
         ));
     }
 
@@ -158,7 +209,14 @@ class BarangKeluarController extends Controller
 
             DB::commit();
 
-            return redirect()->route('barang-keluar.index')
+            // Redirect ke halaman yang sama dengan tab dan filter yang sama
+            $redirectParams = [
+                'bulan' => date('m', strtotime($request->tanggal)),
+                'tahun' => date('Y', strtotime($request->tanggal)),
+                'tab' => 'ringkasan'  // Mengarahkan ke tab ringkasan untuk melihat perubahan
+            ];
+
+            return redirect()->route('barang-keluar.index', $redirectParams)
                 ->with('success', 'Barang keluar berhasil ditambahkan.');
         } catch (\Exception $e) {
             DB::rollBack();

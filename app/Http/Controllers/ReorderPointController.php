@@ -23,6 +23,7 @@ class ReorderPointController extends Controller
         $barangs = Barang::where('stok', '>', 0)->get();
         $selectedBarangId = $request->input('barang_id');
         $safetyStock = 0;
+        $period = '';
 
         if ($selectedBarangId) {
             // Ambil safety stock terakhir untuk barang ini
@@ -31,12 +32,14 @@ class ReorderPointController extends Controller
                 ->first();
 
             $safetyStock = $safetyStockData ? $safetyStockData->hasil : 0;
+            $period = $safetyStockData ? $safetyStockData->bulan : '';
         }
 
         return view('reorder_point.create', compact(
             'barangs',
             'selectedBarangId',
-            'safetyStock'
+            'safetyStock',
+            'period'
         ));
     }
 
@@ -45,6 +48,7 @@ class ReorderPointController extends Controller
         $request->validate([
             'barang_id' => 'required|exists:barang,id',
             'safety_stock' => 'required|numeric|min:0',
+            'period' => 'required|string',
             'lead_time' => 'required|numeric|min:0',
             'permintaan_per_periode' => 'required|numeric|min:0',
             'total_hari_kerja' => 'required|numeric|min:1',
@@ -59,6 +63,7 @@ class ReorderPointController extends Controller
         ReorderPoint::create([
             'barang_id' => $request->barang_id,
             'safety_stock' => $request->safety_stock,
+            'period' => $request->period,
             'lead_time' => $request->lead_time,
             'permintaan_per_periode' => $request->permintaan_per_periode,
             'total_hari_kerja' => $request->total_hari_kerja,
@@ -79,15 +84,29 @@ class ReorderPointController extends Controller
             ->first();
 
         $data = [
-            'safety_stock' => $safetyStock ? $safetyStock->hasil : 0
+            'safety_stock' => $safetyStock ? $safetyStock->hasil : 0,
+            'period' => $safetyStock ? $safetyStock->bulan : ''
         ];
 
         return response()->json($data);
     }
 
-    public function calculate(Request $request, $id)
+    // Menggabungkan fungsi refresh safety stock dan hitung ulang reorder point
+    public function recalculate(Request $request, $id)
     {
         $reorderPoint = ReorderPoint::findOrFail($id);
+        $barangId = $reorderPoint->barang_id;
+
+        // Ambil safety stock terbaru untuk barang ini
+        $latestSafetyStock = SafetyStock::where('barang_id', $barangId)
+            ->latest()
+            ->first();
+
+        if ($latestSafetyStock) {
+            // Update safety stock dan period dengan data terbaru
+            $reorderPoint->safety_stock = $latestSafetyStock->hasil;
+            $reorderPoint->period = $latestSafetyStock->bulan;
+        }
 
         // Hitung permintaan harian (d/hari kerja)
         $permintaanHarian = $reorderPoint->permintaan_per_periode / $reorderPoint->total_hari_kerja;
@@ -98,8 +117,12 @@ class ReorderPointController extends Controller
         $reorderPoint->hasil = $hasil;
         $reorderPoint->save();
 
+        $message = $latestSafetyStock
+            ? 'Safety Stock berhasil diperbarui dan Reorder Point berhasil dihitung ulang.'
+            : 'Reorder Point berhasil dihitung ulang (Safety Stock tidak ditemukan).';
+
         return redirect()->route('reorder-point.index')
-            ->with('success', 'Reorder Point berhasil dihitung.');
+            ->with('success', $message);
     }
 
     public function edit($id)
@@ -131,5 +154,19 @@ class ReorderPointController extends Controller
 
         return redirect()->route('reorder-point.index')
             ->with('success', 'Reorder Point berhasil diperbarui.');
+    }
+
+    public function destroy($id)
+    {
+        try {
+            $reorderPoint = ReorderPoint::findOrFail($id);
+            $reorderPoint->delete();
+
+            return redirect()->route('reorder-point.index')
+                ->with('success', 'Reorder Point berhasil dihapus.');
+        } catch (\Exception $e) {
+            return redirect()->route('reorder-point.index')
+                ->with('error', 'Terjadi kesalahan saat menghapus data: ' . $e->getMessage());
+        }
     }
 }

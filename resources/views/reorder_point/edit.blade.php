@@ -34,9 +34,14 @@
 
                             <div class="form-group mb-3">
                                 <label for="safety_stock">Safety Stock</label>
-                                <input type="number" class="form-control" value="{{ $reorderPoint->safety_stock }}"
-                                    readonly>
-                                <small class="form-text text-muted">Nilai Safety Stock tidak dapat diubah</small>
+                                <input type="number" class="form-control" id="safety_stock" name="safety_stock"
+                                    value="{{ $reorderPoint->safety_stock }}" readonly>
+                            </div>
+
+                            <div class="form-group mb-3">
+                                <label for="period">Period</label>
+                                <input type="text" class="form-control" id="period" name="period"
+                                    value="{{ $reorderPoint->period }}" readonly>
                             </div>
 
                             <div class="form-group mb-3">
@@ -60,7 +65,7 @@
 
                             <div class="d-flex justify-content-between">
                                 <a href="{{ route('reorder-point.index') }}" class="btn btn-secondary">Kembali</a>
-                                <button type="submit" class="btn btn-primary">Simpan Perubahan</button>
+                                <button type="submit" class="btn btn-primary">Simpan</button>
                             </div>
                         </form>
                     </div>
