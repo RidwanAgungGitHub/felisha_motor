@@ -60,6 +60,19 @@
         .card-dashboard:hover {
             transform: translateY(-5px);
         }
+
+        .role-badge {
+            font-size: 0.75rem;
+            background-color: #28a745;
+            color: white;
+            padding: 0.2rem 0.5rem;
+            border-radius: 0.25rem;
+            margin-left: 0.5rem;
+        }
+
+        .role-badge.kasir {
+            background-color: #17a2b8;
+        }
     </style>
 </head>
 
@@ -72,64 +85,76 @@
                     <div class="media d-flex align-items-center">
                         <div class="media-body">
                             <h4 class="m-0">Falisa Inventory</h4>
+                            <small class="text-muted">
+                                {{ Auth::user()->name }}
+                                <span class="role-badge {{ Auth::user()->role == 'kasir' ? 'kasir' : '' }}">
+                                    {{ ucfirst(Auth::user()->role) }}
+                                </span>
+                            </small>
                         </div>
                     </div>
                 </div>
                 <ul class="nav flex-column">
-                    <li class="nav-item">
-                        <a href="{{ route('dashboard') }}"
-                            class="nav-link {{ request()->routeIs('dashboard') ? 'active' : '' }}">
-                            <i class="fas fa-tachometer-alt"></i> Dashboard
-                        </a>
-                    </li>
-                    <li class="nav-item">
-                        <a href="{{ route('barang.index') }}"
-                            class="nav-link {{ request()->routeIs('barang.*') ? 'active' : '' }}">
-                            <i class="fas fa-box"></i> Barang
-                        </a>
-                    </li>
-                    <li class="nav-item">
-                        <a href="{{ route('barang_masuk.index') }}"
-                            class="nav-link {{ request()->routeIs('barang_masuk.*') ? 'active' : '' }}">
-                            <i class="fas fa-truck-loading"></i> Barang Masuk
-                        </a>
-                    </li>
-                    <li class="nav-item">
-                        <a href="{{ route('barang-keluar.index') }}"
-                            class="nav-link {{ request()->routeIs('barang-keluar.*') ? 'active' : '' }}">
-                            <i class="fas fa-truck-loading"></i> Barang Keluar
-                        </a>
-                    </li>
-                    <li class="nav-item">
-                        <a href="{{ route('kasir') }}"
-                            class="nav-link {{ request()->routeIs('kasir') ? 'active' : '' }}">
-                            <i class="fas fa-cash-register"></i> Kasir
-                        </a>
-                    </li>
-                    <li class="nav-item">
-                        <a href="{{ route('reorder-point.index') }}"
-                            class="nav-link {{ request()->routeIs('reorder-point') ? 'active' : '' }}">
-                            <i class="fas fa-cash-register"></i> Reorder Point
-                        </a>
-                    </li>
-                    <li class="nav-item">
-                        <a href="{{ route('safety-stock.index') }}"
-                            class="nav-link {{ request()->routeIs('safety-stock') ? 'active' : '' }}">
-                            <i class="fas fa-cash-register"></i> Safety Stock
-                        </a>
-                    </li>
-                    <li class="nav-item">
-                        <a href="{{ route('reports.inventory-status') }}"
-                            class="nav-link {{ request()->routeIs('inventori-management.*') ? 'active' : '' }}">
-                            <i class="fas fa-boxes"></i> Report Inventory
-                        </a>
-                    </li>
-                    <li class="nav-item">
-                        <a href="{{ route('supplier.index') }}"
-                            class="nav-link {{ request()->routeIs('supplier.*') ? 'active' : '' }}">
-                            <i class="fas fa-handshake"></i> Supplier
-                        </a>
-                    </li>
+                    @if (Auth::user()->role == 'admin')
+                        <!-- Dashboard - Hanya untuk Admin -->
+                        <li class="nav-item">
+                            <a href="{{ route('admin.dashboard') }}"
+                                class="nav-link {{ request()->routeIs('admin.dashboard') || request()->routeIs('dashboard') ? 'active' : '' }}">
+                                <i class="fas fa-tachometer-alt"></i> Dashboard
+                            </a>
+                        </li>
+                        <!-- Menu khusus Admin -->
+                        <li class="nav-item">
+                            <a href="{{ route('barang.index') }}"
+                                class="nav-link {{ request()->routeIs('barang.*') ? 'active' : '' }}">
+                                <i class="fas fa-box"></i> Barang
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a href="{{ route('barang_masuk.index') }}"
+                                class="nav-link {{ request()->routeIs('barang_masuk.*') ? 'active' : '' }}">
+                                <i class="fas fa-truck-loading"></i> Barang Masuk
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a href="{{ route('barang-keluar.index') }}"
+                                class="nav-link {{ request()->routeIs('barang-keluar.*') ? 'active' : '' }}">
+                                <i class="fas fa-shipping-fast"></i> Barang Keluar
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a href="{{ route('reorder-point.index') }}"
+                                class="nav-link {{ request()->routeIs('reorder-point.*') ? 'active' : '' }}">
+                                <i class="fas fa-exclamation-triangle"></i> Reorder Point
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a href="{{ route('safety-stock.index') }}"
+                                class="nav-link {{ request()->routeIs('safety-stock.*') ? 'active' : '' }}">
+                                <i class="fas fa-shield-alt"></i> Safety Stock
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a href="{{ route('reports.inventory-status') }}"
+                                class="nav-link {{ request()->routeIs('reports.*') ? 'active' : '' }}">
+                                <i class="fas fa-chart-bar"></i> Report Inventory
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a href="{{ route('supplier.index') }}"
+                                class="nav-link {{ request()->routeIs('supplier.*') ? 'active' : '' }}">
+                                <i class="fas fa-handshake"></i> Supplier
+                            </a>
+                        </li>
+                    @elseif(Auth::user()->role == 'kasir')
+                        <!-- Menu khusus Kasir - Langsung fokus ke kasir -->
+                        <li class="nav-item">
+                            <a href="{{ route('kasir') }}"
+                                class="nav-link {{ request()->routeIs('kasir*') ? 'active' : '' }}">
+                                <i class="fas fa-cash-register"></i> Kasir
+                            </a>
+                        </li>
+                    @endif
                 </ul>
             </div>
 
@@ -144,17 +169,26 @@
                         </button>
                         <div class="collapse navbar-collapse justify-content-between" id="navbarNav">
                             <ul class="navbar-nav">
-                                <li class="nav-item">
-                                    <a class="nav-link" href="{{ route('dashboard') }}">
-                                        <i class="fas fa-home"></i> Home
-                                    </a>
-                                </li>
+                                @if (Auth::user()->role == 'admin')
+                                    <li class="nav-item">
+                                        <a class="nav-link" href="{{ route('admin.dashboard') }}">
+                                            <i class="fas fa-home"></i> Home
+                                        </a>
+                                    </li>
+                                @else
+                                    <li class="nav-item">
+                                        <a class="nav-link" href="{{ route('kasir') }}">
+                                            <i class="fas fa-cash-register"></i> Home
+                                        </a>
+                                    </li>
+                                @endif
                             </ul>
                             <ul class="navbar-nav">
                                 <li class="nav-item dropdown">
                                     <a class="nav-link dropdown-toggle" href="#" id="navbarDropdown"
                                         role="button" data-bs-toggle="dropdown">
                                         <i class="fas fa-user-circle"></i> {{ Auth::user()->name }}
+                                        <small class="text-muted">({{ ucfirst(Auth::user()->role) }})</small>
                                     </a>
                                     <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="navbarDropdown">
                                         <li><a class="dropdown-item" href="#"><i class="fas fa-user-cog"></i>
@@ -179,6 +213,30 @@
 
                 <!-- Page Content -->
                 <div class="container-fluid">
+                    @if (session('success'))
+                        <div class="alert alert-success alert-dismissible fade show" role="alert">
+                            <i class="fas fa-check-circle"></i> {{ session('success') }}
+                            <button type="button" class="btn-close" data-bs-dismiss="alert"
+                                aria-label="Close"></button>
+                        </div>
+                    @endif
+
+                    @if (session('error'))
+                        <div class="alert alert-danger alert-dismissible fade show" role="alert">
+                            <i class="fas fa-exclamation-circle"></i> {{ session('error') }}
+                            <button type="button" class="btn-close" data-bs-dismiss="alert"
+                                aria-label="Close"></button>
+                        </div>
+                    @endif
+
+                    @if (session('warning'))
+                        <div class="alert alert-warning alert-dismissible fade show" role="alert">
+                            <i class="fas fa-exclamation-triangle"></i> {{ session('warning') }}
+                            <button type="button" class="btn-close" data-bs-dismiss="alert"
+                                aria-label="Close"></button>
+                        </div>
+                    @endif
+
                     @yield('content')
                 </div>
             </div>
@@ -187,6 +245,16 @@
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.0.2/dist/js/bootstrap.bundle.min.js"></script>
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+
+    <!-- Auto hide alerts after 5 seconds -->
+    <script>
+        $(document).ready(function() {
+            setTimeout(function() {
+                $('.alert').fadeOut('slow');
+            }, 5000);
+        });
+    </script>
+
     @yield('scripts')
 </body>
 

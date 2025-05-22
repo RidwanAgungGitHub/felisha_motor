@@ -21,7 +21,22 @@ class AuthController extends Controller
 
         if (Auth::attempt($credentials)) {
             $request->session()->regenerate();
-            return redirect()->intended(route('dashboard'));
+
+            // Get user role
+            $user = Auth::user();
+
+            // Jika user belum punya role, set default sebagai kasir
+            if (!isset($user->role) || empty($user->role)) {
+                $user->role = 'kasir';
+                $user->save();
+            }
+
+            // Redirect berdasarkan role dengan URL yang tepat
+            if ($user->role == 'admin') {
+                return redirect()->to('/admin/dashboard')->with('success', 'Selamat datang, ' . $user->name . '! (Admin)');
+            } else {
+                return redirect()->to('/kasir')->with('success', 'Selamat datang, ' . $user->name . '! (Kasir)');
+            }
         }
 
         return back()->withErrors([
@@ -31,9 +46,12 @@ class AuthController extends Controller
 
     public function logout(Request $request)
     {
+        $userName = Auth::user() ? Auth::user()->name : 'User';
+
         Auth::logout();
         $request->session()->invalidate();
         $request->session()->regenerateToken();
-        return redirect('/login');
+
+        return redirect('/login')->with('success', 'Sampai jumpa, ' . $userName . '!');
     }
 }

@@ -61,9 +61,6 @@
                                 <a href="{{ route('barang-keluar.index') }}" class="btn btn-secondary">
                                     <i class="fas fa-sync"></i> Reset
                                 </a>
-                                <a href="{{ route('kasir') }}" class="btn btn-success">
-                                    <i class="fas fa-cash-register"></i> Mode Kasir
-                                </a>
                             </div>
                         </form>
                     </div>
@@ -146,7 +143,7 @@
                                 </div>
                             </div>
 
-                            <!-- Tab untuk ringkasan bulanan barang keluar (yang perlu diperbaiki) -->
+                            <!-- Tab untuk ringkasan bulanan barang keluar -->
                             <div class="tab-pane fade {{ $activeTab == 'ringkasan' ? 'show active' : '' }}" id="ringkasan"
                                 role="tabpanel" aria-labelledby="ringkasan-tab">
                                 <h5 class="mb-3">
