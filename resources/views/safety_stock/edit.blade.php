@@ -45,6 +45,11 @@
                                     name="pemakaian_rata_rata" value="{{ $safetyStock->pemakaian_rata_rata }}" readonly
                                     disabled>
                             </div>
+                            <div class="form-group mb-3">
+                                <label for="pemakaian_rata_rata">Period</label>
+                                <input type="text" class="form-control" id="bulan" name="bulan"
+                                    value="{{ $safetyStock->bulan }}" readonly disabled>
+                            </div>
 
                             <div class="form-group mb-3">
                                 <label for="lead_time">Lead Time (hari)</label>

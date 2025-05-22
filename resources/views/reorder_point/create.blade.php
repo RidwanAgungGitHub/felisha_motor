@@ -52,6 +52,13 @@
                                 </div>
 
                                 <div class="form-group mb-3">
+                                    <label for="period">Period</label>
+                                    <input type="text" class="form-control" id="period" name="period"
+                                        value="{{ $period }}" required readonly>
+                                    <small class="form-text text-muted">Period dari Safety Stock</small>
+                                </div>
+
+                                <div class="form-group mb-3">
                                     <label for="lead_time">Lead Time (hari)</label>
                                     <input type="number" class="form-control" id="lead_time" name="lead_time"
                                         value="{{ old('lead_time') }}" required>

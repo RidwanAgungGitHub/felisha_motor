@@ -9,14 +9,13 @@ class SafetyStock extends Model
 {
     use HasFactory;
 
-    protected $table = 'safety_stocks';
-
     protected $fillable = [
         'barang_id',
         'pemakaian_maksimum',
         'pemakaian_rata_rata',
         'lead_time',
-        'hasil'
+        'hasil',
+        'bulan'
     ];
 
     public function barang()

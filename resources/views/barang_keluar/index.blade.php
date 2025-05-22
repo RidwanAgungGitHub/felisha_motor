@@ -146,11 +146,12 @@
                                 </div>
                             </div>
 
-                            <!-- Tab untuk ringkasan bulanan barang keluar -->
+                            <!-- Tab untuk ringkasan bulanan barang keluar (yang perlu diperbaiki) -->
                             <div class="tab-pane fade {{ $activeTab == 'ringkasan' ? 'show active' : '' }}" id="ringkasan"
                                 role="tabpanel" aria-labelledby="ringkasan-tab">
                                 <h5 class="mb-3">
                                     Ringkasan Barang Keluar Bulan {{ $namaBulan[$bulan] ?? '' }} {{ $tahun }}
+                                    <small class="text-muted">(Total {{ $totalHariAktif }} hari aktif)</small>
                                 </h5>
                                 <div class="table-responsive">
                                     <table class="table table-bordered table-striped">
@@ -160,7 +161,7 @@
                                                 <th>Nama Barang</th>
                                                 <th>Merek</th>
                                                 <th>Jumlah</th>
-                                                <th>Rata-Rata/Hari</th>
+                                                <th>Rata-Rata/Hari Aktif</th>
                                                 <th>Total Harga</th>
                                                 <th>Periode</th>
                                             </tr>
@@ -172,7 +173,9 @@
                                                     <td>{{ $item->nama_barang }}</td>
                                                     <td>{{ $item->merek }}</td>
                                                     <td>{{ $item->total_jumlah }} {{ $item->satuan }}</td>
-                                                    <td>{{ $item->rata_per_hari }} {{ $item->satuan }}/hari</td>
+                                                    <td>{{ $item->rata_per_hari }} {{ $item->satuan }}/hari
+                                                        ({{ $item->jumlah_hari_aktif }} hari)
+                                                    </td>
                                                     <td>Rp {{ number_format($item->total_harga, 0, ',', '.') }}</td>
                                                     <td>{{ $item->bulan }}</td>
                                                 </tr>
@@ -188,12 +191,9 @@
                                             <tfoot>
                                                 <tr class="bg-light font-weight-bold">
                                                     <td colspan="3" class="text-right">Total:</td>
-                                                    <td>{{ $barangKeluarBulanan->sum('total_jumlah') }}</td>
-                                                    <td>{{ ceil($barangKeluarBulanan->sum('total_jumlah') / $barangKeluarBulanan->first()->jumlah_hari) }}
-                                                    </td>
-                                                    <td>Rp
-                                                        {{ number_format($barangKeluarBulanan->sum('total_harga'), 0, ',', '.') }}
-                                                    </td>
+                                                    <td>{{ $totalJumlah }}</td>
+                                                    <td>{{ $totalRataPerHari }}/hari</td>
+                                                    <td>Rp {{ number_format($totalHarga, 0, ',', '.') }}</td>
                                                     <td></td>
                                                 </tr>
                                             </tfoot>

@@ -62,10 +62,10 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/safety-stock/create', [SafetyStockController::class, 'create'])->name('safety-stock.create');
     Route::post('/safety-stock', [SafetyStockController::class, 'store'])->name('safety-stock.store');
     Route::get('/safety-stock/get-barang-data', [SafetyStockController::class, 'getBarangData'])->name('safety-stock.get-barang-data');
-    Route::post('/safety-stock/{id}/calculate', [SafetyStockController::class, 'calculate'])->name('safety-stock.calculate');
     Route::get('/safety-stock/{id}/edit', [SafetyStockController::class, 'edit'])->name('safety-stock.edit');
     Route::put('/safety-stock/{id}', [SafetyStockController::class, 'update'])->name('safety-stock.update');
-
+    Route::post('safety-stock/{id}/recalculate', [SafetyStockController::class, 'recalculate'])->name('safety-stock.recalculate');
+    Route::delete('/safety-stock/{id}', [SafetyStockController::class, 'destroy'])->name('safety-stock.destroy');
 
     // Routes untuk Reorder Point
     Route::get('/reorder-point', [ReorderPointController::class, 'index'])->name('reorder-point.index');
@@ -73,8 +73,9 @@ Route::middleware(['auth'])->group(function () {
     Route::post('/reorder-point', [ReorderPointController::class, 'store'])->name('reorder-point.store');
     Route::get('/reorder-point/{id}/edit', [ReorderPointController::class, 'edit'])->name('reorder-point.edit'); // Route baru
     Route::put('/reorder-point/{id}', [ReorderPointController::class, 'update'])->name('reorder-point.update'); // Route baru
-    Route::post('/reorder-point/{id}/calculate', [ReorderPointController::class, 'calculate'])->name('reorder-point.calculate');
     Route::get('/reorder-point/get-safety-stock', [ReorderPointController::class, 'getSafetyStock'])->name('reorder-point.get-safety-stock');
+    Route::post('reorder-point/{id}/recalculate', [ReorderPointController::class, 'recalculate'])->name('reorder-point.recalculate');
+    Route::delete('/reorder-point/{id}', [ReorderPointController::class, 'destroy'])->name('reorder-point.destroy');
 
     // Laporan Status Inventori
     Route::get('/reports/inventory-status', [App\Http\Controllers\ReportController::class, 'inventoryStatus'])->name('reports.inventory-status');

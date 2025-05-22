@@ -30,6 +30,7 @@
                                         <th>Stok Saat Ini</th>
                                         <th>Safety Stock</th>
                                         <th>Reorder Point</th>
+                                        <th>Period</th>
                                         <th>Status</th>
                                     </tr>
                                 </thead>
@@ -44,6 +45,7 @@
                                             </td>
                                             <td>{{ $item['reorder_point'] ? number_format($item['reorder_point'], 0) . ' ' . $item['satuan'] : '-' }}
                                             </td>
+                                            <td>{{ $item['period'] ?? '-' }}</td>
                                             <td>
                                                 <span class="badge bg-{{ $item['status_class'] }}">
                                                     {{ $item['status'] }}
@@ -52,7 +54,7 @@
                                         </tr>
                                     @empty
                                         <tr>
-                                            <td colspan="7" class="text-center">Tidak ada data</td>
+                                            <td colspan="8" class="text-center">Tidak ada data</td>
                                         </tr>
                                     @endforelse
                                 </tbody>
