@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Barang;
+use Illuminate\Support\Facades\Http;
 use App\Models\BarangKeluar;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -141,25 +142,20 @@ class KasirController extends Controller
             return redirect()->back()->with('error', 'Jumlah tunai kurang dari total belanja');
         }
 
-        // Generate invoice number
         $invoiceNumber = 'INV-' . date('Ymd') . '-' . Str::random(5);
 
-        // Begin transaction
         DB::beginTransaction();
 
         try {
             foreach ($cart as $id => $item) {
                 $barang = Barang::findOrFail($id);
 
-                // Validasi stok terakhir
                 if ($barang->stok < $item['jumlah']) {
                     throw new \Exception("Stok {$barang->nama_barang} tidak mencukupi. Stok tersedia: {$barang->stok}");
                 }
 
-                // Hitung total harga
                 $totalHarga = $barang->harga * $item['jumlah'];
 
-                // Simpan barang keluar
                 BarangKeluar::create([
                     'barang_id' => $id,
                     'jumlah' => $item['jumlah'],
@@ -169,7 +165,6 @@ class KasirController extends Controller
                         ($request->nama_pelanggan ? ' - Pelanggan: ' . $request->nama_pelanggan : ''),
                 ]);
 
-                // Update stok barang
                 $barang->stok -= $item['jumlah'];
                 $barang->save();
             }
@@ -189,9 +184,26 @@ class KasirController extends Controller
             ];
 
             session()->put('checkout', $checkout);
-
-            // Kosongkan keranjang
             session()->forget('cart');
+
+            // Kirim pesan ke WhatsApp jika nomor diisi
+            if ($request->no_whatsapp) {
+                $pesan = "*Terima kasih sudah berbelanja!*%0A".
+                         "Invoice: {$invoiceNumber}%0A".
+                         "Tanggal: ".now()->format('Y-m-d H:i:s')."%0A".
+                         "Total: Rp. " . number_format($totalTransaksi, 0, ',', '.') . "%0A".
+                         "Tunai: Rp. " . number_format($request->tunai, 0, ',', '.') . "%0A".
+                         "Kembalian: Rp. " . number_format($request->tunai - $totalTransaksi, 0, ',', '.') . "%0A".
+                         "Semoga hari Anda menyenangkan!";
+
+                Http::withHeaders([
+                    'Authorization' => 'LqbEgMK6bpw9aKyZjp9q' // Ganti dengan API key kamu
+                ])->post('https://api.fonnte.com/send', [
+                    'target' => $request->no_whatsapp,
+                    'message' => $pesan,
+                    'countryCode' => '62', // opsional, default 62
+                ]);
+            }
 
             return redirect()->route('kasir.struk')->with('success', 'Pembayaran berhasil diproses!');
         } catch (\Exception $e) {
@@ -199,6 +211,40 @@ class KasirController extends Controller
             return redirect()->back()->with('error', 'Terjadi kesalahan: ' . $e->getMessage());
         }
     }
+
+    public function kirimPesanWhatsapp(Request $request)
+{
+    $request->validate([
+        'no_whatsapp' => 'required|string',
+        'nama_pelanggan' => 'nullable|string',
+        'total' => 'required|numeric',
+        'tunai' => 'required|numeric'
+    ]);
+
+    $kembalian = $request->tunai - $request->total;
+    $pesan = "*Struk Pembayaran*\n" .
+             "Nama: " . ($request->nama_pelanggan ?? 'Pelanggan Umum') . "\n" .
+             "Total: Rp " . number_format($request->total, 0, ',', '.') . "\n" .
+             "Tunai: Rp " . number_format($request->tunai, 0, ',', '.') . "\n" .
+             "Kembalian: Rp " . number_format($kembalian, 0, ',', '.') . "\n\n" .
+             "Terima kasih telah berbelanja!";
+
+    $apiKey = 'LqbEgMK6bpw9aKyZjp9q';  // Ganti dengan API key asli kamu
+
+    $response = Http::withHeaders([
+        'Authorization' => $apiKey
+    ])->post('https://api.fonnte.com/send', [
+        'target' => preg_replace('/^0/', '62', $request->no_whatsapp),
+        'message' => $pesan,
+        'countryCode' => '62'
+    ]);
+
+    if ($response->successful()) {
+        return response()->json(['status' => 'success', 'message' => 'Pesan berhasil dikirim']);
+    } else {
+        return response()->json(['status' => 'error', 'message' => 'Gagal mengirim pesan'], 500);
+    }
+}
 
     // Fungsi untuk menampilkan struk - TANPA LAYOUT UTAMA
     public function struk()
