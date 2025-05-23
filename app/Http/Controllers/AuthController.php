@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use App\Models\User;
 
 class AuthController extends Controller
 {
@@ -22,20 +23,22 @@ class AuthController extends Controller
         if (Auth::attempt($credentials)) {
             $request->session()->regenerate();
 
-            // Get user role
+            // Get user
             $user = Auth::user();
 
-            // Jika user belum punya role, set default sebagai kasir
-            if (!isset($user->role) || empty($user->role)) {
-                $user->role = 'kasir';
-                $user->save();
+            // Pastikan user punya role, jika tidak set ke kasir
+            if (empty($user->role)) {
+                User::where('id', $user->id)->update(['role' => 'kasir']);
+                // Refresh auth user
+                Auth::setUser(User::find($user->id));
+                $user = Auth::user();
             }
 
-            // Redirect berdasarkan role dengan URL yang tepat
-            if ($user->role == 'admin') {
-                return redirect()->to('/admin/dashboard')->with('success', 'Selamat datang, ' . $user->name . '! (Admin)');
+            // Redirect berdasarkan role - LANGSUNG KE URL tanpa middleware dulu
+            if ($user->role === 'admin') {
+                return redirect('/admin-dashboard')->with('success', 'Selamat datang, ' . $user->name . '! (Admin)');
             } else {
-                return redirect()->to('/kasir')->with('success', 'Selamat datang, ' . $user->name . '! (Kasir)');
+                return redirect('/kasir-dashboard')->with('success', 'Selamat datang, ' . $user->name . '! (Kasir)');
             }
         }
 

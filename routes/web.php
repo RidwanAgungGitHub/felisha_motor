@@ -17,11 +17,6 @@ use App\Http\Controllers\ReportController;
 |--------------------------------------------------------------------------
 | Web Routes
 |--------------------------------------------------------------------------
-|
-| Here is where you can register web routes for your application. These
-| routes are loaded by the RouteServiceProvider and all of them will
-| be assigned to the "web" middleware group. Make something great!
-|
 */
 
 // Authentication Routes (tidak perlu middleware)
@@ -29,10 +24,39 @@ Route::get('/login', [AuthController::class, 'showLoginForm'])->name('login');
 Route::post('/login', [AuthController::class, 'login']);
 Route::post('/logout', [AuthController::class, 'logout'])->name('logout');
 
+// Route khusus untuk landing setelah login - TANPA MIDDLEWARE DULU
+Route::get('/admin-dashboard', function () {
+    if (!Auth::check()) {
+        return redirect()->route('login');
+    }
+
+    $user = Auth::user();
+    if ($user->role !== 'admin') {
+        return redirect('/kasir-dashboard');
+    }
+
+    // Redirect ke dashboard admin yang sebenarnya
+    return redirect('/dashboard');
+})->name('admin-landing');
+
+Route::get('/kasir-dashboard', function () {
+    if (!Auth::check()) {
+        return redirect()->route('login');
+    }
+
+    $user = Auth::user();
+    if ($user->role !== 'kasir') {
+        return redirect('/admin-dashboard');
+    }
+
+    // Redirect ke kasir yang sebenarnya
+    return redirect('/kasir');
+})->name('kasir-landing');
+
 // Routes khusus untuk Role ADMIN
 Route::middleware(['auth', 'role:admin'])->group(function () {
     // Dashboard - hanya admin
-    Route::get('/', [DashboardController::class, 'index'])->name('dashboard');
+    Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
 
     // Barang Management - Full CRUD
     Route::resource('barang', BarangController::class);
@@ -81,14 +105,9 @@ Route::middleware(['auth', 'role:admin'])->group(function () {
     Route::get('/reports/inventory-status/print', [ReportController::class, 'printInventoryStatus'])->name('reports.inventory-status.print');
 });
 
-// Routes khusus untuk Role KASIR - HANYA FITUR KASIR
+// Routes khusus untuk Role KASIR
 Route::middleware(['auth', 'role:kasir'])->group(function () {
-    // Dashboard kasir redirect ke kasir
-    Route::get('/', function () {
-        return redirect()->route('kasir');
-    })->name('dashboard');
-
-    // Kasir Routes - HANYA INI YANG BISA DIAKSES KASIR
+    // Kasir Routes
     Route::get('/kasir', [KasirController::class, 'index'])->name('kasir');
     Route::post('/kasir/add-to-cart', [KasirController::class, 'addToCart'])->name('kasir.add-to-cart');
     Route::post('/kasir/update-cart-qty', [KasirController::class, 'updateCartQty'])->name('kasir.update-cart-qty');
@@ -98,12 +117,17 @@ Route::middleware(['auth', 'role:kasir'])->group(function () {
     Route::get('/kasir/struk', [KasirController::class, 'struk'])->name('kasir.struk');
     Route::get('/kasir/hitung-kembalian', [KasirController::class, 'hitungKembalian'])->name('kasir.hitung-kembalian');
     Route::get('/kasir/cetak-laporan', [KasirController::class, 'cetakLaporan'])->name('kasir.cetak-laporan');
-
-    // Route logout khusus untuk kasir
-    Route::get('/kasir/logout', function () {
-        Auth::logout();
-        return redirect()->route('login')->with('success', 'Berhasil logout dari sistem kasir');
-    })->name('kasir.logout');
 });
 
-// KASIR TIDAK BOLEH AKSES ROUTE LAIN SELAIN KASIR DAN LOGOUT
+// Fallback route untuk root
+Route::get('/', function () {
+    if (Auth::check()) {
+        $user = Auth::user();
+        if ($user->role === 'admin') {
+            return redirect('/dashboard');
+        } else {
+            return redirect('/kasir');
+        }
+    }
+    return redirect('/login');
+});

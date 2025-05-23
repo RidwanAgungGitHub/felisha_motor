@@ -98,8 +98,8 @@
                     @if (Auth::user()->role == 'admin')
                         <!-- Dashboard - Hanya untuk Admin -->
                         <li class="nav-item">
-                            <a href="{{ route('admin.dashboard') }}"
-                                class="nav-link {{ request()->routeIs('admin.dashboard') || request()->routeIs('dashboard') ? 'active' : '' }}">
+                            <a href="{{ route('dashboard') }}"
+                                class="nav-link {{ request()->routeIs('dashboard') || request()->routeIs('dashboard') ? 'active' : '' }}">
                                 <i class="fas fa-tachometer-alt"></i> Dashboard
                             </a>
                         </li>
@@ -171,7 +171,7 @@
                             <ul class="navbar-nav">
                                 @if (Auth::user()->role == 'admin')
                                     <li class="nav-item">
-                                        <a class="nav-link" href="{{ route('admin.dashboard') }}">
+                                        <a class="nav-link" href="{{ route('dashboard') }}">
                                             <i class="fas fa-home"></i> Home
                                         </a>
                                     </li>

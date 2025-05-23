@@ -34,11 +34,13 @@ class CheckRole
 
         // Cek apakah role user sesuai dengan yang dibutuhkan
         if ($user->role !== $role) {
-            // Redirect ke halaman yang sesuai dengan role user
+            // Redirect ke halaman yang sesuai dengan role user berdasarkan ROUTES yang ada
             if ($user->role == 'admin') {
-                return redirect()->to('/admin/dashboard')->with('error', 'Anda tidak memiliki akses ke halaman tersebut.');
+                // Admin dashboard menggunakan route '/' dengan name 'dashboard'
+                return redirect()->route('dashboard')->with('error', 'Anda tidak memiliki akses ke halaman tersebut.');
             } else {
-                return redirect()->to('/kasir')->with('error', 'Anda tidak memiliki akses ke halaman tersebut.');
+                // Kasir menggunakan route '/kasir' dengan name 'kasir'
+                return redirect()->route('kasir')->with('error', 'Anda tidak memiliki akses ke halaman tersebut.');
             }
         }
 
