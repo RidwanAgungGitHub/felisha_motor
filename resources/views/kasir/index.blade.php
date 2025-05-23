@@ -342,6 +342,10 @@
                                 <button type="submit" class="btn btn-warning btn-kasir w-100 btn-lg">
                                     <i class="fas fa-cash-register"></i> PROSES PEMBAYARAN
                                 </button>
+                                <button type="button" class="btn btn-success w-100 btn-lg mt-2" onclick="kirimKeWhatsappServer()">
+    <i class="fab fa-whatsapp"></i> KIRIM KE WHATSAPP
+</button>
+
                             </form>
                         @else
                             <div class="text-center py-5">
@@ -444,54 +448,93 @@
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
 
     <script>
-        document.addEventListener('DOMContentLoaded', function() {
-            // Auto hide alerts
-            setTimeout(function() {
-                $('.alert').fadeOut('slow');
-            }, 5000);
+    // Fungsi ini di luar DOMContentLoaded agar bisa dipanggil oleh tombol onclick
+    function kirimKeWhatsappServer() {
+    const noWa = document.getElementById('no_whatsapp').value;
+    const nama = document.getElementById('nama_pelanggan').value || 'Pelanggan Umum';
+    const tunai = parseInt(document.getElementById('tunai').value);
+    const total = parseInt(document.getElementById('total_checkout').value);
 
-            // Hitung kembalian
-            const hitungKembalianBtn = document.getElementById('hitungKembalianBtn');
-            if (hitungKembalianBtn) {
-                hitungKembalianBtn.addEventListener('click', function() {
-                    const total = parseFloat(document.getElementById('total_checkout').value);
-                    const tunai = parseFloat(document.getElementById('tunai').value);
+    if (!noWa) {
+        alert('Nomor WhatsApp belum diisi!');
+        return;
+    }
 
-                    if (!isNaN(tunai) && !isNaN(total)) {
-                        const kembalian = tunai - total;
-                        document.getElementById('kembalian').value = formatRupiah(kembalian);
-                    }
-                });
-            }
+    fetch("{{ route('kirim.wa') }}", {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRF-TOKEN': "{{ csrf_token() }}"
+        },
+        body: JSON.stringify({
+            no_whatsapp: noWa,
+            nama_pelanggan: nama,
+            total: total,
+            tunai: tunai
+        })
+    })
+    .then(res => res.json())
+    .then(data => {
+        if (data.status === 'success') {
+            alert('Pesan berhasil dikirim ke WhatsApp');
+        } else {
+            alert('Gagal mengirim pesan: ' + data.message);
+        }
+    })
+    .catch(err => {
+        alert('Terjadi kesalahan: ' + err.message);
+    });
+}
 
-            // Auto calculate kembalian saat tunai berubah
-            const tunaiInput = document.getElementById('tunai');
-            if (tunaiInput) {
-                tunaiInput.addEventListener('input', function() {
-                    const total = parseFloat(document.getElementById('total_checkout').value);
-                    const tunai = parseFloat(this.value);
+    document.addEventListener('DOMContentLoaded', function () {
+        // Auto hide alerts
+        setTimeout(function () {
+            $('.alert').fadeOut('slow');
+        }, 5000);
 
-                    if (!isNaN(tunai) && !isNaN(total)) {
-                        const kembalian = tunai - total;
-                        document.getElementById('kembalian').value = formatRupiah(kembalian);
-                    }
-                });
-            }
+        // Hitung kembalian
+        const hitungKembalianBtn = document.getElementById('hitungKembalianBtn');
+        if (hitungKembalianBtn) {
+            hitungKembalianBtn.addEventListener('click', function () {
+                const total = parseFloat(document.getElementById('total_checkout').value);
+                const tunai = parseFloat(document.getElementById('tunai').value);
 
-            function formatRupiah(angka) {
-                return new Intl.NumberFormat('id-ID').format(angka);
-            }
-
-            // Update tombol kosongkan keranjang untuk menggunakan modal
-            document.addEventListener('click', function(e) {
-                if (e.target.closest('.clear-cart-btn')) {
-                    e.preventDefault();
-                    var clearCartModal = new bootstrap.Modal(document.getElementById('clearCartModal'));
-                    clearCartModal.show();
+                if (!isNaN(tunai) && !isNaN(total)) {
+                    const kembalian = tunai - total;
+                    document.getElementById('kembalian').value = formatRupiah(kembalian);
                 }
             });
+        }
+
+        // Auto calculate kembalian saat tunai berubah
+        const tunaiInput = document.getElementById('tunai');
+        if (tunaiInput) {
+            tunaiInput.addEventListener('input', function () {
+                const total = parseFloat(document.getElementById('total_checkout').value);
+                const tunai = parseFloat(this.value);
+
+                if (!isNaN(tunai) && !isNaN(total)) {
+                    const kembalian = tunai - total;
+                    document.getElementById('kembalian').value = formatRupiah(kembalian);
+                }
+            });
+        }
+
+        function formatRupiah(angka) {
+            return new Intl.NumberFormat('id-ID').format(angka);
+        }
+
+        // Modal untuk kosongkan keranjang
+        document.addEventListener('click', function (e) {
+            if (e.target.closest('.clear-cart-btn')) {
+                e.preventDefault();
+                var clearCartModal = new bootstrap.Modal(document.getElementById('clearCartModal'));
+                clearCartModal.show();
+            }
         });
-    </script>
+    });
+</script>
+
 </body>
 
 </html>

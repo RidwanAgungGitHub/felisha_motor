@@ -117,6 +117,11 @@ Route::middleware(['auth', 'role:kasir'])->group(function () {
     Route::get('/kasir/struk', [KasirController::class, 'struk'])->name('kasir.struk');
     Route::get('/kasir/hitung-kembalian', [KasirController::class, 'hitungKembalian'])->name('kasir.hitung-kembalian');
     Route::get('/kasir/cetak-laporan', [KasirController::class, 'cetakLaporan'])->name('kasir.cetak-laporan');
+    Route::post('/kirim-wa', [KasirController::class, 'kirimPesanWhatsapp'])->name('kirim.wa');
+    Route::get('/kasir/logout', function () {
+        Auth::logout();
+        return redirect('/login')->with('success', 'Anda berhasil logout.');
+    })->name('kasir.logout');
 });
 
 // Fallback route untuk root
