@@ -186,25 +186,6 @@ class KasirController extends Controller
             session()->put('checkout', $checkout);
             session()->forget('cart');
 
-            // Kirim pesan ke WhatsApp jika nomor diisi
-            if ($request->no_whatsapp) {
-                $pesan = "*Terima kasih sudah berbelanja!*%0A".
-                         "Invoice: {$invoiceNumber}%0A".
-                         "Tanggal: ".now()->format('Y-m-d H:i:s')."%0A".
-                         "Total: Rp. " . number_format($totalTransaksi, 0, ',', '.') . "%0A".
-                         "Tunai: Rp. " . number_format($request->tunai, 0, ',', '.') . "%0A".
-                         "Kembalian: Rp. " . number_format($request->tunai - $totalTransaksi, 0, ',', '.') . "%0A".
-                         "Semoga hari Anda menyenangkan!";
-
-                Http::withHeaders([
-                    'Authorization' => 'LqbEgMK6bpw9aKyZjp9q' // Ganti dengan API key kamu
-                ])->post('https://api.fonnte.com/send', [
-                    'target' => $request->no_whatsapp,
-                    'message' => $pesan,
-                    'countryCode' => '62', // opsional, default 62
-                ]);
-            }
-
             return redirect()->route('kasir.struk')->with('success', 'Pembayaran berhasil diproses!');
         } catch (\Exception $e) {
             DB::rollBack();
@@ -212,39 +193,89 @@ class KasirController extends Controller
         }
     }
 
+    // Fungsi untuk mengirim struk via WhatsApp - DIPERBAIKI
     public function kirimPesanWhatsapp(Request $request)
-{
-    $request->validate([
-        'no_whatsapp' => 'required|string',
-        'nama_pelanggan' => 'nullable|string',
-        'total' => 'required|numeric',
-        'tunai' => 'required|numeric'
-    ]);
+    {
+        try {
+            $request->validate([
+                'no_whatsapp' => 'required|string',
+                'nama_pelanggan' => 'required|string',
+                'total' => 'required|numeric',
+                'tunai' => 'required|numeric',
+                'kembalian' => 'required|numeric',
+                'invoice_number' => 'required|string',
+                'items' => 'required|array'
+            ]);
 
-    $kembalian = $request->tunai - $request->total;
-    $pesan = "*Struk Pembayaran*\n" .
-             "Nama: " . ($request->nama_pelanggan ?? 'Pelanggan Umum') . "\n" .
-             "Total: Rp " . number_format($request->total, 0, ',', '.') . "\n" .
-             "Tunai: Rp " . number_format($request->tunai, 0, ',', '.') . "\n" .
-             "Kembalian: Rp " . number_format($kembalian, 0, ',', '.') . "\n\n" .
-             "Terima kasih telah berbelanja!";
+            // Format nomor WhatsApp
+            $nomorWA = $request->no_whatsapp;
+            if (substr($nomorWA, 0, 1) === '0') {
+                $nomorWA = '62' . substr($nomorWA, 1);
+            } elseif (substr($nomorWA, 0, 2) !== '62') {
+                $nomorWA = '62' . $nomorWA;
+            }
 
-    $apiKey = 'LqbEgMK6bpw9aKyZjp9q';  // Ganti dengan API key asli kamu
+            // Buat pesan struk yang lebih rapi
+            $pesan = "*STRUK PEMBAYARAN*\n";
+            $pesan .= "*Falisa Inventory*\n";
+            $pesan .= "================================\n";
+            $pesan .= "Invoice: " . $request->invoice_number . "\n";
+            $pesan .= "Tanggal: " . now()->format('d/m/Y H:i:s') . "\n";
+            $pesan .= "Kasir: " . Auth::user()->name . "\n";
+            $pesan .= "Pelanggan: " . $request->nama_pelanggan . "\n";
+            $pesan .= "================================\n";
+            $pesan .= "*DETAIL PEMBELIAN:*\n";
 
-    $response = Http::withHeaders([
-        'Authorization' => $apiKey
-    ])->post('https://api.fonnte.com/send', [
-        'target' => preg_replace('/^0/', '62', $request->no_whatsapp),
-        'message' => $pesan,
-        'countryCode' => '62'
-    ]);
+            // Tambahkan detail items
+            foreach ($request->items as $item) {
+                $subtotal = $item['harga'] * $item['jumlah'];
+                $pesan .= $item['nama_barang'] . "\n";
+                $pesan .= $item['jumlah'] . " x Rp " . number_format($item['harga'], 0, ',', '.') . " = Rp " . number_format($subtotal, 0, ',', '.') . "\n\n";
+            }
 
-    if ($response->successful()) {
-        return response()->json(['status' => 'success', 'message' => 'Pesan berhasil dikirim']);
-    } else {
-        return response()->json(['status' => 'error', 'message' => 'Gagal mengirim pesan'], 500);
+            $pesan .= "================================\n";
+            $pesan .= "Subtotal: Rp " . number_format($request->total, 0, ',', '.') . "\n";
+            $pesan .= "Tunai: Rp " . number_format($request->tunai, 0, ',', '.') . "\n";
+            $pesan .= "Kembalian: Rp " . number_format($request->kembalian, 0, ',', '.') . "\n";
+            $pesan .= "================================\n";
+            $pesan .= "Terima kasih atas kunjungan Anda!\n";
+            $pesan .= "Barang yang sudah dibeli tidak dapat ditukar/dikembalikan";
+
+            // Kirim via API Fonnte
+            $response = Http::withHeaders([
+                'Authorization' => 'LqbEgMK6bpw9aKyZjp9q' // Ganti dengan API key yang benar
+            ])->post('https://api.fonnte.com/send', [
+                'target' => $nomorWA,
+                'message' => $pesan,
+                'countryCode' => '62'
+            ]);
+
+            if ($response->successful()) {
+                $responseData = $response->json();
+                if (isset($responseData['status']) && $responseData['status'] == true) {
+                    return response()->json([
+                        'status' => 'success',
+                        'message' => 'Struk berhasil dikirim ke WhatsApp!'
+                    ]);
+                } else {
+                    return response()->json([
+                        'status' => 'error',
+                        'message' => 'Gagal mengirim pesan: ' . ($responseData['reason'] ?? 'Unknown error')
+                    ], 400);
+                }
+            } else {
+                return response()->json([
+                    'status' => 'error',
+                    'message' => 'Gagal terhubung ke server WhatsApp'
+                ], 500);
+            }
+        } catch (\Exception $e) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Terjadi kesalahan: ' . $e->getMessage()
+            ], 500);
+        }
     }
-}
 
     // Fungsi untuk menampilkan struk - TANPA LAYOUT UTAMA
     public function struk()

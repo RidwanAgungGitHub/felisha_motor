@@ -71,6 +71,27 @@
             border-bottom: 1px solid #eee;
         }
 
+        .whatsapp-section {
+            background: #e8f5e8;
+            border: 2px solid #28a745;
+            border-radius: 10px;
+            padding: 20px;
+            margin: 20px 0;
+        }
+
+        .floating-alert {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 9999;
+            min-width: 300px;
+        }
+
+        .loading-spinner {
+            display: none;
+            margin-left: 10px;
+        }
+
         @media print {
             body {
                 background: white;
@@ -83,7 +104,8 @@
             }
 
             .btn-action,
-            .no-print {
+            .no-print,
+            .whatsapp-section {
                 display: none !important;
             }
 
@@ -96,6 +118,9 @@
 </head>
 
 <body>
+    <!-- Floating Alerts -->
+    <div id="alertContainer"></div>
+
     <div class="struk-container">
         <div class="struk-header">
             <h2><i class="fas fa-receipt"></i> STRUK PEMBAYARAN</h2>
@@ -184,6 +209,38 @@
                 </div>
             </div>
 
+            <!-- WhatsApp Section -->
+            <div class="whatsapp-section no-print">
+                <h5 class="mb-3">
+                    <i class="fab fa-whatsapp text-success"></i> Kirim Struk via WhatsApp
+                </h5>
+                <div class="row">
+                    <div class="col-md-8 mb-3">
+                        <label for="no_whatsapp" class="form-label">
+                            <i class="fab fa-whatsapp"></i> Nomor WhatsApp:
+                        </label>
+                        <div class="input-group">
+                            <span class="input-group-text bg-success text-white">
+                                <i class="fab fa-whatsapp"></i>
+                            </span>
+                            <input type="text" class="form-control" id="no_whatsapp"
+                                value="{{ $checkout['no_whatsapp'] ?? '' }}" placeholder="08123456789">
+                        </div>
+                        <small class="text-muted">Format: 08123456789 (tanpa +62)</small>
+                    </div>
+                    <div class="col-md-4 mb-3">
+                        <label class="form-label">&nbsp;</label>
+                        <button type="button" class="btn btn-success w-100 btn-action" id="btnKirimWA"
+                            onclick="kirimStrukWhatsApp()">
+                            <i class="fab fa-whatsapp"></i> Kirim Struk
+                            <div class="loading-spinner spinner-border spinner-border-sm" role="status">
+                                <span class="visually-hidden">Loading...</span>
+                            </div>
+                        </button>
+                    </div>
+                </div>
+            </div>
+
             <!-- Footer -->
             <div class="text-center mt-4">
                 <p class="mb-1">Terima kasih atas kunjungan Anda!</p>
@@ -202,21 +259,136 @@
         </div>
     </div>
 
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
     <script>
-        // Auto focus untuk print
+        // Fungsi untuk menampilkan alert
+        function showAlert(type, message) {
+            const alertContainer = document.getElementById('alertContainer');
+            const alertDiv = document.createElement('div');
+            alertDiv.className = `alert alert-${type} alert-dismissible fade show floating-alert`;
+            alertDiv.innerHTML = `
+                <i class="fas fa-${type === 'success' ? 'check-circle' : 'exclamation-circle'}"></i> ${message}
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            `;
+            alertContainer.appendChild(alertDiv);
+
+            // Auto hide after 5 seconds
+            setTimeout(() => {
+                if (alertDiv.parentNode) {
+                    alertDiv.remove();
+                }
+            }, 5000);
+        }
+
+        // Fungsi untuk mengirim struk via WhatsApp - DIPERBAIKI
+        function kirimStrukWhatsApp() {
+            const noWa = document.getElementById('no_whatsapp').value.trim();
+            const btnKirim = document.getElementById('btnKirimWA');
+            const spinner = btnKirim.querySelector('.loading-spinner');
+
+            if (!noWa) {
+                showAlert('danger', 'Nomor WhatsApp belum diisi!');
+                return;
+            }
+
+            // Validasi format nomor WhatsApp
+            if (!/^(08|62)\d{8,13}$/.test(noWa)) {
+                showAlert('danger', 'Format nomor WhatsApp tidak valid! Gunakan format: 08123456789');
+                return;
+            }
+
+            // Tampilkan loading
+            btnKirim.disabled = true;
+            spinner.style.display = 'inline-block';
+
+            // Data checkout dari PHP
+            const checkout = @json($checkout);
+
+            // Kirim request ke server
+            fetch("{{ route('kirim.wa') }}", {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRF-TOKEN': "{{ csrf_token() }}"
+                    },
+                    body: JSON.stringify({
+                        no_whatsapp: noWa,
+                        nama_pelanggan: checkout.nama_pelanggan,
+                        total: checkout.total,
+                        tunai: checkout.tunai,
+                        kembalian: checkout.kembalian,
+                        invoice_number: checkout.invoice_number,
+                        items: checkout.items
+                    })
+                })
+                .then(response => response.json())
+                .then(data => {
+                    // Sembunyikan loading
+                    btnKirim.disabled = false;
+                    spinner.style.display = 'none';
+
+                    if (data.status === 'success') {
+                        showAlert('success', data.message);
+                        // Simpan nomor WhatsApp untuk penggunaan selanjutnya
+                        if (typeof(Storage) !== "undefined") {
+                            localStorage.setItem('last_whatsapp', noWa);
+                        }
+                    } else {
+                        showAlert('danger', 'Gagal mengirim struk: ' + data.message);
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    // Sembunyikan loading
+                    btnKirim.disabled = false;
+                    spinner.style.display = 'none';
+                    showAlert('danger', 'Terjadi kesalahan saat mengirim pesan. Silakan coba lagi.');
+                });
+        }
+
+        // Auto load last WhatsApp number
         window.addEventListener('load', function() {
-            // Optional: Auto print setelah 2 detik
-            // setTimeout(function() {
-            //     window.print();
-            // }, 2000);
+            if (typeof(Storage) !== "undefined") {
+                const lastWa = localStorage.getItem('last_whatsapp');
+                const waInput = document.getElementById('no_whatsapp');
+                if (lastWa && !waInput.value) {
+                    waInput.value = lastWa;
+                }
+            }
         });
 
-        // Clear session setelah print
-        window.addEventListener('afterprint', function() {
-            // Optional: Redirect ke kasir setelah print
-            // window.location.href = "{{ route('kasir') }}";
+        // Format nomor WhatsApp saat user mengetik
+        document.getElementById('no_whatsapp').addEventListener('input', function() {
+            let value = this.value.replace(/\D/g, ''); // Remove non-digits
+
+            // Convert 62 prefix to 08
+            if (value.startsWith('62')) {
+                value = '0' + value.substring(2);
+            }
+
+            this.value = value;
+        });
+
+        // Enter key untuk kirim WhatsApp
+        document.getElementById('no_whatsapp').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                kirimStrukWhatsApp();
+            }
+        });
+
+        // Auto dismiss alert when clicked
+        document.addEventListener('click', function(e) {
+            if (e.target.classList.contains('btn-close')) {
+                const alert = e.target.closest('.alert');
+                if (alert) {
+                    alert.remove();
+                }
+            }
         });
     </script>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.0.2/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 
 </html>
