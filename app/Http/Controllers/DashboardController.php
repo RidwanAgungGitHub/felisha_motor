@@ -7,9 +7,18 @@ use App\Models\Barang;
 use App\Models\Supplier;
 use App\Models\SafetyStock;
 use App\Models\ReorderPoint;
+use App\Services\WhatsAppNotificationService;
+use Illuminate\Support\Facades\Log;
 
 class DashboardController extends Controller
 {
+    protected $whatsappService;
+
+    public function __construct(WhatsAppNotificationService $whatsappService)
+    {
+        $this->whatsappService = $whatsappService;
+    }
+
     public function index()
     {
         // Get total barang
@@ -62,6 +71,9 @@ class DashboardController extends Controller
             return $a['stok_saat_ini'] <=> $b['stok_saat_ini'];
         });
 
+        // HAPUS BAGIAN INI - Karena sekarang sudah otomatis via scheduler
+        // $this->checkAndNotifyReorderPoint($notifications);
+
         // Ambil hanya 10 notifikasi teratas untuk dashboard
         $notifications = array_slice($notifications, 0, 10);
 
@@ -111,5 +123,38 @@ class DashboardController extends Controller
             'showReorderAlert',
             'defaultValues'
         ));
+    }
+
+    private function checkAndNotifyReorderPoint($notifications)
+    {
+        // Cek apakah masih bisa kirim notifikasi hari ini (limit 10/hari)
+        if (!$this->whatsappService->canSendDailyNotification()) {
+            Log::info("Daily notification limit reached. Remaining today: 0/10");
+            return;
+        }
+
+        // Filter item yang belum pernah dinotifikasi hari ini
+        $itemsToNotify = array_filter($notifications, function ($item) {
+            return $this->whatsappService->canSendNotification($item['id']);
+        });
+
+        if (!empty($itemsToNotify)) {
+            $sent = $this->whatsappService->sendReorderNotification($itemsToNotify);
+
+            if ($sent) {
+                foreach ($itemsToNotify as $item) {
+                    $this->whatsappService->markNotificationSent($item['id']);
+                }
+
+                $remaining = $this->whatsappService->getRemainingDailyNotifications();
+                Log::info("Reorder notification sent for " . count($itemsToNotify) . " items. Remaining today: {$remaining}/10", [
+                    'items' => array_column($itemsToNotify, 'nama_barang')
+                ]);
+            } else {
+                Log::warning("Failed to send reorder notification", [
+                    'items_count' => count($itemsToNotify)
+                ]);
+            }
+        }
     }
 }
