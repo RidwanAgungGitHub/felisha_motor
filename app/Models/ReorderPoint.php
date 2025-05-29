@@ -9,13 +9,14 @@ class ReorderPoint extends Model
 {
     use HasFactory;
 
-    protected $table = 'reorder_points';
-
     protected $fillable = [
         'barang_id',
         'safety_stock',
+        'period',
         'lead_time',
-        'hasil'
+        'permintaan_per_periode',
+        'total_hari_kerja',
+        'hasil',
     ];
 
     public function barang()

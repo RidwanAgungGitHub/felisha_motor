@@ -9,10 +9,11 @@
                     <div class="card-header d-flex justify-content-between align-items-center">
                         <h5 class="mb-0">Status Inventori</h5>
                         <div>
-                            <button onclick="printReport()" class="btn btn-sm btn-secondary">
+                            <a href="{{ route('reports.inventory-status.print') }}" class="btn btn-sm btn-secondary"
+                                target="_blank">
                                 <i class="fa fa-print"></i> Cetak
-                            </button>
-                            <a href="#" class="btn btn-sm btn-success" id="exportExcel">
+                            </a>
+                            <a href="{{ route('reports.inventory-status.export') }}" class="btn btn-sm btn-success">
                                 <i class="fa fa-file-excel"></i> Export Excel
                             </a>
                         </div>
@@ -29,6 +30,7 @@
                                         <th>Stok Saat Ini</th>
                                         <th>Safety Stock</th>
                                         <th>Reorder Point</th>
+                                        <th>Period</th>
                                         <th>Status</th>
                                     </tr>
                                 </thead>
@@ -38,11 +40,12 @@
                                             <td>{{ $index + 1 }}</td>
                                             <td>{{ $item['nama_barang'] }}</td>
                                             <td>{{ $item['merek'] }}</td>
-                                            <td>{{ number_format($item['stok'], 0) }} {{ $item['satuan'] }}</td>
+                                            <td>{{ $item['stok'] }} {{ $item['satuan'] }}</td>
                                             <td>{{ $item['safety_stock'] ? number_format($item['safety_stock'], 0) . ' ' . $item['satuan'] : '-' }}
                                             </td>
                                             <td>{{ $item['reorder_point'] ? number_format($item['reorder_point'], 0) . ' ' . $item['satuan'] : '-' }}
                                             </td>
+                                            <td>{{ $item['period'] ?? '-' }}</td>
                                             <td>
                                                 <span class="badge bg-{{ $item['status_class'] }}">
                                                     {{ $item['status'] }}
@@ -51,7 +54,7 @@
                                         </tr>
                                     @empty
                                         <tr>
-                                            <td colspan="7" class="text-center">Tidak ada data</td>
+                                            <td colspan="8" class="text-center">Tidak ada data</td>
                                         </tr>
                                     @endforelse
                                 </tbody>
@@ -76,15 +79,6 @@
                     url: "//cdn.datatables.net/plug-ins/1.10.24/i18n/Indonesian.json"
                 }
             });
-
-            // Export to Excel functionality
-            $("#exportExcel").on("click", function() {
-                window.location.href = "{{ route('reports.inventory-status.export') }}";
-            });
         });
-
-        function printReport() {
-            window.print();
-        }
     </script>
 @endpush
