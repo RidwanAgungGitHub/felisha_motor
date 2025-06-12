@@ -9,6 +9,7 @@ use App\Models\SafetyStock;
 use App\Models\ReorderPoint;
 use App\Services\WhatsAppNotificationService;
 use Illuminate\Support\Facades\Log;
+use App\Services\WhatsAppSupplierService;
 
 class DashboardController extends Controller
 {
@@ -123,6 +124,9 @@ class DashboardController extends Controller
             'showReorderAlert',
             'defaultValues'
         ));
+
+        $suppliers = Supplier::latest()->get(); // gunakan get(), bukan paginate untuk modal
+        return view('dashboard', compact('suppliers'));
     }
 
     private function checkAndNotifyReorderPoint($notifications)
@@ -155,6 +159,64 @@ class DashboardController extends Controller
                     'items_count' => count($itemsToNotify)
                 ]);
             }
+        }
+    }
+
+
+    public function sendWhatsAppToSupplier(Request $request)
+    {
+        try {
+            $request->validate([
+                'supplier_phone' => 'required',
+                'supplier_name' => 'required',
+                'barang_id' => 'required|exists:barang,id'
+            ]);
+
+            // Ambil data barang
+            $barang = \App\Models\Barang::find($request->barang_id);
+
+            if (!$barang) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Barang tidak ditemukan'
+                ], 404);
+            }
+
+            // Siapkan data barang untuk WhatsApp
+            $barangData = [
+                'nama_barang' => $barang->nama_barang,
+                'merek' => $barang->merek,
+                'stok_saat_ini' => $barang->stok,
+                'satuan' => $barang->satuan,
+                'reorder_point' => $barang->reorder_point ?? 0
+            ];
+
+            // Kirim WhatsApp
+            $whatsappService = new WhatsAppSupplierService();
+            $sent = $whatsappService->sendSupplierOrderRequest(
+                $request->supplier_phone,
+                $request->supplier_name,
+                $barangData
+            );
+
+            if ($sent) {
+                return response()->json([
+                    'success' => true,
+                    'message' => 'Pesan WhatsApp berhasil dikirim ke ' . $request->supplier_name
+                ]);
+            } else {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Gagal mengirim pesan WhatsApp. Mungkin kuota harian sudah habis.'
+                ], 500);
+            }
+        } catch (\Exception $e) {
+            \Log::error('Error sending WhatsApp to supplier: ' . $e->getMessage());
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Terjadi kesalahan: ' . $e->getMessage()
+            ], 500);
         }
     }
 }

@@ -12,6 +12,7 @@ use App\Http\Controllers\BarangKeluarController;
 use App\Http\Controllers\SafetyStockController;
 use App\Http\Controllers\ReorderPointController;
 use App\Http\Controllers\ReportController;
+use App\Http\Controllers\WhatsAppController;
 
 /*
 |--------------------------------------------------------------------------
@@ -136,3 +137,7 @@ Route::get('/', function () {
     }
     return redirect('/login');
 });
+
+
+Route::post('/dashboard/send-whatsapp', [DashboardController::class, 'sendWhatsAppToSupplier'])
+    ->name('dashboard.send-whatsapp');
