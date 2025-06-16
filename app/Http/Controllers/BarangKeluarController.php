@@ -17,13 +17,22 @@ class BarangKeluarController extends Controller
         $bulan = $request->input('bulan', now()->format('m'));
         $tahun = $request->input('tahun', now()->format('Y'));
 
-        // Data untuk tabel pertama (semua histori barang keluar)
+        // Data untuk tabel pertama (semua histori barang keluar) dengan pagination
         $barangKeluarQuery = BarangKeluar::with('barang');
         if ($bulan && $tahun) {
             $barangKeluarQuery->whereMonth('tanggal', $bulan)
                 ->whereYear('tanggal', $tahun);
         }
-        $barangKeluar = $barangKeluarQuery->latest()->get();
+
+        // Pagination untuk histori barang keluar - 2 data per halaman
+        $barangKeluar = $barangKeluarQuery->latest()->paginate(10, ['*'], 'histori_page');
+
+        // Preserve query parameters for pagination links
+        $barangKeluar->appends([
+            'bulan' => $bulan,
+            'tahun' => $tahun,
+            'tab' => $request->input('tab', 'histori')
+        ]);
 
         // Menghitung jumlah hari aktif (hari dimana ada transaksi) untuk setiap barang
         $hariAktifPerBarang = [];
@@ -62,8 +71,8 @@ class BarangKeluarController extends Controller
             $hariAktifPerBarang[$item->barang_id] = $item->jumlah_hari_aktif > 0 ? $item->jumlah_hari_aktif : 1;
         }
 
-        // Data untuk tabel kedua (dikelompokkan per barang per bulan)
-        $barangKeluarBulanan = DB::table('barang_keluar')
+        // Data untuk tabel kedua (dikelompokkan per barang per bulan) dengan pagination
+        $barangKeluarBulananQuery = DB::table('barang_keluar')
             ->join('barang', 'barang_keluar.barang_id', '=', 'barang.id')
             ->select(
                 'barang.id as barang_id',
@@ -77,18 +86,47 @@ class BarangKeluarController extends Controller
             ->whereMonth('barang_keluar.tanggal', $bulan)
             ->whereYear('barang_keluar.tanggal', $tahun)
             ->groupBy('barang.id', 'barang.nama_barang', 'barang.merek', 'barang.satuan', 'bulan')
-            ->orderBy('barang.nama_barang')
-            ->get();
+            ->orderBy('barang.nama_barang');
+
+        // Pagination untuk ringkasan barang keluar - 2 data per halaman
+        $barangKeluarBulanan = $barangKeluarBulananQuery->paginate(10, ['*'], 'ringkasan_page');
+
+        // Preserve query parameters for pagination links
+        $barangKeluarBulanan->appends([
+            'bulan' => $bulan,
+            'tahun' => $tahun,
+            'tab' => $request->input('tab', 'histori')
+        ]);
 
         // Menghitung rata-rata per hari aktif untuk setiap item
         $totalJumlah = 0;
+        $totalHarga = 0;
+
+        // Hitung total dari semua data (tidak hanya yang ada di halaman saat ini)
+        $allRingkasanData = DB::table('barang_keluar')
+            ->join('barang', 'barang_keluar.barang_id', '=', 'barang.id')
+            ->select(
+                'barang.id as barang_id',
+                DB::raw('SUM(barang_keluar.jumlah) as total_jumlah'),
+                DB::raw('SUM(barang_keluar.total_harga) as total_harga')
+            )
+            ->whereMonth('barang_keluar.tanggal', $bulan)
+            ->whereYear('barang_keluar.tanggal', $tahun)
+            ->groupBy('barang.id')
+            ->get();
+
+        foreach ($allRingkasanData as $item) {
+            $totalJumlah += $item->total_jumlah;
+            $totalHarga += $item->total_harga;
+        }
+
+        // Proses data yang ada di halaman saat ini
         foreach ($barangKeluarBulanan as $item) {
             // Menggunakan jumlah hari aktif transaksi untuk barang ini, default = 1 jika tidak ada
             $hariAktif = $hariAktifPerBarang[$item->barang_id] ?? 1;
 
             $item->jumlah_hari_aktif = $hariAktif;
             $item->rata_per_hari = ceil($item->total_jumlah / $hariAktif);
-            $totalJumlah += $item->total_jumlah;
         }
 
         // Mengambil daftar bulan dan tahun yang tersedia
@@ -120,7 +158,6 @@ class BarangKeluarController extends Controller
 
         // Menghitung total rata-rata per hari
         $totalRataPerHari = $totalHariAktif > 0 ? ceil($totalJumlah / $totalHariAktif) : 0;
-        $totalHarga = $barangKeluarBulanan->sum('total_harga');
 
         return view('barang_keluar.index', compact(
             'barangKeluar',
