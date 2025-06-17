@@ -96,7 +96,7 @@
                                         <th width="25%">Merek</th>
                                         <th width="15%">Stok Saat Ini</th>
                                         <th width="15%">Reorder Point</th>
-                                        <th width="5%">Action</th>
+                                        <th width="5%" colspan="2">Action</th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -125,6 +125,14 @@
                                                     onclick="setTimeout(function(){ $('#createBarangMasukModal').modal('show'); }, 100);">
                                                     <i class="fas fa-plus"></i>
                                                 </a>
+
+                                            </td>
+                                            <td class="text-center">
+                                                <i class="bi bi-whatsapp text-success" style="cursor: pointer;"
+                                                    data-barang-id="{{ $notification['id'] }}"
+                                                    data-barang-nama="{{ $notification['nama_barang'] }}"
+                                                    onclick="openWhatsappModal(this)">
+                                                </i>
                                             </td>
                                         </tr>
                                     @empty
@@ -306,6 +314,102 @@
         </div>
     </div>
 
+    <!-- Ganti modal WhatsApp yang sudah ada dengan yang ini -->
+    <div class="modal fade" id="createWhatsappModal" tabindex="-1" aria-labelledby="createWhatsappModalLabel"
+        aria-hidden="true">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="createWhatsappModalLabel">
+                        Pilih Supplier
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="alert alert-info">
+                        <i class="fas fa-info-circle"></i>
+                        <strong>Informasi:</strong> Pilih supplier untuk mengirim permintaan penawaran barang via WhatsApp.
+                    </div>
+
+                    <table class="table table-bordered table-hover" id="supplierDataTable" width="100%"
+                        cellspacing="0">
+                        <thead class="thead-light">
+                            <tr>
+                                <th width="10%">No</th>
+                                <th width="35%">Nama</th>
+                                <th width="35%">Kontak</th>
+                                <th width="20%">Aksi</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @forelse ($suppliers as $supplier)
+                                <tr>
+                                    <td class="text-center">{{ $loop->iteration }}</td>
+                                    <td>
+                                        <strong>{{ $supplier->nama }}</strong>
+                                        @if ($supplier->alamat)
+                                            <br><small class="text-muted">{{ $supplier->alamat }}</small>
+                                        @endif
+                                    </td>
+                                    <td>
+                                        @if ($supplier->telp_1)
+                                            <div class="mb-1">
+                                                <i class="fas fa-phone text-primary"></i>
+                                                <span class="text-dark">{{ $supplier->telp_1 }}</span>
+                                            </div>
+                                        @endif
+
+                                        @if ($supplier->kontak)
+                                            <div>
+                                                <i class="fas fa-address-book text-success"></i>
+                                                <span class="text-dark">{{ $supplier->kontak }}</span>
+                                            </div>
+                                        @endif
+
+                                        @if (!$supplier->telp_1 && !$supplier->kontak)
+                                            <span class="badge badge-secondary">Tidak ada kontak</span>
+                                        @endif
+                                    </td>
+                                    <td class="text-center">
+                                        @php
+                                            $phoneNumber = $supplier->telp_1 ?: $supplier->kontak;
+                                        @endphp
+
+                                        @if ($phoneNumber)
+                                            <button class="btn btn-success btn-sm"
+                                                onclick="sendWhatsappToSupplier('{{ $phoneNumber }}', '{{ $supplier->nama }}')"
+                                                title="Kirim WhatsApp ke {{ $supplier->nama }}">
+                                                <i class="fab fa-whatsapp"></i> Kirim
+                                            </button>
+                                        @else
+                                            <button class="btn btn-secondary btn-sm" disabled
+                                                title="Tidak ada nomor telepon">
+                                                <i class="fas fa-ban"></i> N/A
+                                            </button>
+                                        @endif
+                                    </td>
+                                </tr>
+                            @empty
+                                <tr>
+                                    <td colspan="4" class="text-center py-4">
+                                        <div class="text-muted">
+                                            <i class="fas fa-users fa-2x mb-3"></i>
+                                            <h6>Belum Ada Supplier</h6>
+                                            <p>Silakan tambahkan supplier terlebih dahulu.</p>
+                                            <a href="{{ route('supplier.create') }}" class="btn btn-primary btn-sm">
+                                                <i class="fas fa-plus"></i> Tambah Supplier
+                                            </a>
+                                        </div>
+                                    </td>
+                                </tr>
+                            @endforelse
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
     @if (request()->has('barang_id'))
         <script>
             // Auto open modal if barang_id parameter exists
@@ -351,3 +455,125 @@
         }
     </style>
 @endpush
+<script>
+    let selectedBarangId = null;
+    let selectedBarangNama = null;
+    let originalModalContent = null; // Simpan konten asli modal
+
+    // Simpan konten asli modal saat halaman dimuat
+    document.addEventListener('DOMContentLoaded', function() {
+        const modalBody = document.querySelector('#createWhatsappModal .modal-body');
+        if (modalBody) {
+            originalModalContent = modalBody.innerHTML;
+        }
+    });
+
+    function openWhatsappModal(element) {
+        selectedBarangId = element.getAttribute('data-barang-id');
+        selectedBarangNama = element.getAttribute('data-barang-nama');
+
+        // Update modal title
+        document.getElementById('createWhatsappModalLabel').textContent =
+            'Pilih Supplier untuk: ' + selectedBarangNama;
+
+        // Show modal
+        var modal = new bootstrap.Modal(document.getElementById('createWhatsappModal'));
+        modal.show();
+    }
+
+    function sendWhatsappToSupplier(supplierPhone, supplierName) {
+        if (!selectedBarangId) {
+            alert('Barang belum dipilih!');
+            return;
+        }
+
+        // Show loading
+        const loadingHtml = `
+        <div class="text-center py-3">
+            <div class="spinner-border text-primary" role="status"></div>
+            <p class="mt-2">Mengirim pesan WhatsApp...</p>
+        </div>
+    `;
+
+        document.querySelector('#createWhatsappModal .modal-body').innerHTML = loadingHtml;
+
+        // Send AJAX request
+        fetch('/dashboard/send-whatsapp', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
+                },
+                body: JSON.stringify({
+                    supplier_phone: supplierPhone,
+                    supplier_name: supplierName,
+                    barang_id: selectedBarangId
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    // Show success message
+                    const successHtml = `
+                    <div class="text-center py-4">
+                        <div class="alert alert-success">
+                            <i class="fas fa-check-circle fa-2x text-success mb-3"></i>
+                            <h5>Berhasil Dikirim!</h5>
+                            <p>${data.message}</p>
+                        </div>
+                        <button type="button" class="btn btn-primary" data-bs-dismiss="modal">Tutup</button>
+                    </div>
+                `;
+                    document.querySelector('#createWhatsappModal .modal-body').innerHTML = successHtml;
+
+                    // Auto close after 3 seconds
+                    setTimeout(() => {
+                        bootstrap.Modal.getInstance(document.getElementById('createWhatsappModal')).hide();
+                        location.reload(); // Refresh halaman
+                    }, 3000);
+
+                } else {
+                    // Show error message
+                    const errorHtml = `
+                    <div class="text-center py-4">
+                        <div class="alert alert-danger">
+                            <i class="fas fa-exclamation-triangle fa-2x text-danger mb-3"></i>
+                            <h5>Gagal Mengirim</h5>
+                            <p>${data.message}</p>
+                        </div>
+                        <button type="button" class="btn btn-secondary" onclick="location.reload()">Coba Lagi</button>
+                    </div>
+                `;
+                    document.querySelector('#createWhatsappModal .modal-body').innerHTML = errorHtml;
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                const errorHtml = `
+                <div class="text-center py-4">
+                    <div class="alert alert-danger">
+                        <i class="fas fa-exclamation-triangle fa-2x text-danger mb-3"></i>
+                        <h5>Terjadi Kesalahan</h5>
+                        <p>Tidak dapat mengirim pesan WhatsApp. Silakan coba lagi.</p>
+                    </div>
+                    <button type="button" class="btn btn-secondary" onclick="location.reload()">Coba Lagi</button>
+                </div>
+            `;
+                document.querySelector('#createWhatsappModal .modal-body').innerHTML = errorHtml;
+            });
+    }
+
+    // Reset modal when closed
+    document.getElementById('createWhatsappModal').addEventListener('hidden.bs.modal', function() {
+        selectedBarangId = null;
+        selectedBarangNama = null;
+
+        // Reset modal title
+        document.getElementById('createWhatsappModalLabel').textContent = 'Pilih Supplier';
+
+        // Reset modal content dengan konten asli
+        if (originalModalContent) {
+            document.querySelector('#createWhatsappModal .modal-body').innerHTML = originalModalContent;
+        }
+    });
+</script>

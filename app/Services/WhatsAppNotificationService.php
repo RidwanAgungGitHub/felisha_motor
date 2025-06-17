@@ -36,6 +36,10 @@ class WhatsAppNotificationService
 
         if ($sent) {
             $this->incrementDailyNotificationCount();
+            // Mark items as notified dengan status stok saat ini
+            foreach ($items as $item) {
+                $this->markNotificationSent($item['id'], $item['stok_saat_ini']);
+            }
         }
 
         return $sent;
@@ -93,16 +97,54 @@ class WhatsAppNotificationService
         }
     }
 
-    public function canSendNotification($itemId)
+    public function canSendNotification($itemId, $currentStock)
     {
         $cacheKey = "reorder_notification_{$itemId}";
-        return !Cache::has($cacheKey);
+        $cachedData = Cache::get($cacheKey);
+
+        if (!$cachedData) {
+            // Belum pernah dinotifikasi
+            return true;
+        }
+
+        // Jika stok berubah dari terakhir kali dinotifikasi, boleh kirim lagi
+        $lastNotifiedStock = $cachedData['stock'] ?? 0;
+        $lastNotifiedTime = $cachedData['time'] ?? null;
+
+        // Jika stok berbeda atau sudah lewat 1 jam, boleh kirim notifikasi lagi
+        $hoursPassed = $lastNotifiedTime ? now()->diffInHours($lastNotifiedTime) : 24;
+
+        return ($currentStock != $lastNotifiedStock) || ($hoursPassed >= 1);
     }
 
-    public function markNotificationSent($itemId)
+    public function markNotificationSent($itemId, $currentStock)
     {
         $cacheKey = "reorder_notification_{$itemId}";
-        Cache::put($cacheKey, true, now()->addDay());
+        $data = [
+            'stock' => $currentStock,
+            'time' => now(),
+            'notified' => true
+        ];
+
+        // Cache selama 24 jam, tapi logic di atas memungkinkan notifikasi ulang
+        Cache::put($cacheKey, $data, now()->addDay());
+
+        Log::info("Notification marked as sent", [
+            'item_id' => $itemId,
+            'stock' => $currentStock,
+            'cache_key' => $cacheKey
+        ]);
+    }
+
+    public function resetNotificationCache($itemId)
+    {
+        $cacheKey = "reorder_notification_{$itemId}";
+        Cache::forget($cacheKey);
+
+        Log::info("Notification cache reset for item", [
+            'item_id' => $itemId,
+            'cache_key' => $cacheKey
+        ]);
     }
 
     public function canSendDailyNotification()
@@ -122,10 +164,30 @@ class WhatsAppNotificationService
         $cacheKey = "daily_notification_count_" . now()->format('Y_m_d');
         $currentCount = $this->getDailyNotificationCount();
         Cache::put($cacheKey, $currentCount + 1, now()->endOfDay());
+
+        Log::info("Daily notification count incremented", [
+            'count' => $currentCount + 1,
+            'date' => now()->format('Y-m-d')
+        ]);
     }
 
     public function getRemainingDailyNotifications()
     {
         return 10 - $this->getDailyNotificationCount();
+    }
+
+    public function getNotificationStatus($itemId)
+    {
+        $cacheKey = "reorder_notification_{$itemId}";
+        $cachedData = Cache::get($cacheKey);
+        $dailyCount = $this->getDailyNotificationCount();
+
+        return [
+            'can_send_daily' => $this->canSendDailyNotification(),
+            'daily_count' => $dailyCount,
+            'daily_remaining' => $this->getRemainingDailyNotifications(),
+            'item_cache' => $cachedData,
+            'cache_key' => $cacheKey
+        ];
     }
 }
