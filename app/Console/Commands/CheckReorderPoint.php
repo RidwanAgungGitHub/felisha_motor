@@ -10,42 +10,29 @@ use Illuminate\Support\Facades\Log;
 
 class CheckReorderPoint extends Command
 {
-    /**
-     * The name and signature of the console command.
-     *
-     * @var string
-     */
-    protected $signature = 'reorder:check';
-
-    /**
-     * The console command description.
-     *
-     * @var string
-     */
+    protected $signature = 'reorder:check {--debug : Show debug information}';
     protected $description = 'Check reorder point and send WhatsApp notifications automatically';
-
     protected $whatsappService;
 
-    /**
-     * Create a new command instance.
-     *
-     * @return void
-     */
     public function __construct(WhatsAppNotificationService $whatsappService)
     {
         parent::__construct();
         $this->whatsappService = $whatsappService;
     }
 
-    /**
-     * Execute the console command.
-     *
-     * @return int
-     */
     public function handle()
     {
         $this->info('🔍 Checking reorder points...');
         Log::info('Automated reorder point check started');
+
+        // Debug mode
+        $debug = $this->option('debug');
+
+        if ($debug) {
+            $this->info('🐛 Debug mode enabled');
+            $dailyStatus = $this->whatsappService->getDailyNotificationCount();
+            $this->info("📊 Daily notifications sent: {$dailyStatus}/10");
+        }
 
         // Get barang yang memerlukan perhatian (reorder point)
         $barangs = Barang::orderBy('nama_barang')->get();
@@ -74,6 +61,13 @@ class CheckReorderPoint extends Command
                     'priority' => 1,
                     'created_at' => $barang->updated_at
                 ];
+
+                if ($debug) {
+                    $notifStatus = $this->whatsappService->getNotificationStatus($barang->id);
+                    $this->warn("📦 {$barang->nama_barang} - Stok: {$barang->stok} | Reorder: {$reorderPoint->hasil}");
+                    $this->line("   Can send: " . ($this->whatsappService->canSendNotification($barang->id, $barang->stok) ? 'YES' : 'NO'));
+                    $this->line("   Cache: " . json_encode($notifStatus['item_cache']));
+                }
             }
         }
 
@@ -91,19 +85,21 @@ class CheckReorderPoint extends Command
             }
 
             // Kirim notifikasi WhatsApp
-            $this->checkAndNotifyReorderPoint($notifications);
+            $this->checkAndNotifyReorderPoint($notifications, $debug);
         } else {
             $this->info('✅ All items are above reorder point. No notification needed.');
             Log::info('Automated reorder point check completed - No items need reordering');
         }
 
+        if ($debug) {
+            $remaining = $this->whatsappService->getRemainingDailyNotifications();
+            $this->info("📊 Daily notifications remaining: {$remaining}/10");
+        }
+
         return 0;
     }
 
-    /**
-     * Check and send WhatsApp notifications
-     */
-    private function checkAndNotifyReorderPoint($notifications)
+    private function checkAndNotifyReorderPoint($notifications, $debug = false)
     {
         // Cek apakah masih bisa kirim notifikasi hari ini (limit 10/hari)
         if (!$this->whatsappService->canSendDailyNotification()) {
@@ -112,10 +108,17 @@ class CheckReorderPoint extends Command
             return;
         }
 
-        // Filter item yang belum pernah dinotifikasi hari ini
+        // Filter item yang belum pernah dinotifikasi atau stoknya berubah
         $itemsToNotify = array_filter($notifications, function ($item) {
-            return $this->whatsappService->canSendNotification($item['id']);
+            return $this->whatsappService->canSendNotification($item['id'], $item['stok_saat_ini']);
         });
+
+        if ($debug) {
+            $this->info("🔍 Items to notify: " . count($itemsToNotify) . "/" . count($notifications));
+            foreach ($itemsToNotify as $item) {
+                $this->line("   • {$item['nama_barang']} (Stock: {$item['stok_saat_ini']})");
+            }
+        }
 
         if (!empty($itemsToNotify)) {
             $this->info("📱 Sending WhatsApp notification for " . count($itemsToNotify) . " items...");
@@ -123,15 +126,14 @@ class CheckReorderPoint extends Command
             $sent = $this->whatsappService->sendReorderNotification($itemsToNotify);
 
             if ($sent) {
-                foreach ($itemsToNotify as $item) {
-                    $this->whatsappService->markNotificationSent($item['id']);
-                }
-
                 $remaining = $this->whatsappService->getRemainingDailyNotifications();
                 $this->info("✅ Reorder notification sent successfully! Remaining today: {$remaining}/10");
 
                 Log::info("Automated reorder notification sent for " . count($itemsToNotify) . " items. Remaining today: {$remaining}/10", [
-                    'items' => array_column($itemsToNotify, 'nama_barang')
+                    'items' => array_column($itemsToNotify, 'nama_barang'),
+                    'stocks' => array_map(function ($item) {
+                        return $item['nama_barang'] . ': ' . $item['stok_saat_ini'];
+                    }, $itemsToNotify)
                 ]);
             } else {
                 $this->error("❌ Failed to send reorder notification");
@@ -140,8 +142,8 @@ class CheckReorderPoint extends Command
                 ]);
             }
         } else {
-            $this->info("ℹ️  All items already notified today. No new notifications sent.");
-            Log::info("All reorder point items already notified today");
+            $this->info("ℹ️  All items already notified with current stock levels. No new notifications sent.");
+            Log::info("All reorder point items already notified with current stock levels");
         }
     }
 }

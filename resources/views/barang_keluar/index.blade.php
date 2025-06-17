@@ -98,6 +98,7 @@
                                 role="tabpanel" aria-labelledby="histori-tab">
                                 <h5 class="mb-3">
                                     Data Histori Bulan {{ $namaBulan[$bulan] ?? '' }} {{ $tahun }}
+                                    <small class="text-muted">({{ $barangKeluar->total() }} total data)</small>
                                 </h5>
                                 <div class="table-responsive">
                                     <table class="table table-bordered table-striped">
@@ -117,7 +118,8 @@
                                         <tbody>
                                             @forelse ($barangKeluar as $index => $item)
                                                 <tr>
-                                                    <td>{{ $index + 1 }}</td>
+                                                    <td>{{ ($barangKeluar->currentPage() - 1) * $barangKeluar->perPage() + $index + 1 }}
+                                                    </td>
                                                     <td>{{ $item->barang->nama_barang }}</td>
                                                     <td>{{ $item->barang->merek }}</td>
                                                     <td>{{ $item->jumlah }} {{ $item->barang->satuan }}</td>
@@ -141,6 +143,83 @@
                                         </tbody>
                                     </table>
                                 </div>
+
+                                <!-- Pagination untuk histori -->
+                                @if ($barangKeluar->hasPages())
+                                    <div class="row mt-4">
+                                        <div class="col-md-6">
+                                            <div class="dataTables_info">
+                                                <small class="text-muted">
+                                                    Menampilkan {{ $barangKeluar->firstItem() }} sampai
+                                                    {{ $barangKeluar->lastItem() }}
+                                                    dari {{ $barangKeluar->total() }} data histori
+                                                </small>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <div class="dataTables_paginate paging_simple_numbers float-right">
+                                                <nav aria-label="Pagination Navigation">
+                                                    <ul class="pagination pagination-sm justify-content-end mb-0">
+                                                        {{-- Previous Page Link --}}
+                                                        @if ($barangKeluar->onFirstPage())
+                                                            <li class="page-item disabled">
+                                                                <span class="page-link">
+                                                                    <i class="fas fa-angle-left"></i>
+                                                                </span>
+                                                            </li>
+                                                        @else
+                                                            <li class="page-item">
+                                                                <a class="page-link"
+                                                                    href="{{ $barangKeluar->previousPageUrl() }}">
+                                                                    <i class="fas fa-angle-left"></i>
+                                                                </a>
+                                                            </li>
+                                                        @endif
+
+                                                        {{-- Pagination Elements --}}
+                                                        @foreach ($barangKeluar->getUrlRange(1, $barangKeluar->lastPage()) as $page => $url)
+                                                            @if ($page == $barangKeluar->currentPage())
+                                                                <li class="page-item active">
+                                                                    <span class="page-link">{{ $page }}</span>
+                                                                </li>
+                                                            @else
+                                                                <li class="page-item">
+                                                                    <a class="page-link"
+                                                                        href="{{ $url }}">{{ $page }}</a>
+                                                                </li>
+                                                            @endif
+                                                        @endforeach
+
+                                                        {{-- Next Page Link --}}
+                                                        @if ($barangKeluar->hasMorePages())
+                                                            <li class="page-item">
+                                                                <a class="page-link"
+                                                                    href="{{ $barangKeluar->nextPageUrl() }}">
+                                                                    <i class="fas fa-angle-right"></i>
+                                                                </a>
+                                                            </li>
+                                                        @else
+                                                            <li class="page-item disabled">
+                                                                <span class="page-link">
+                                                                    <i class="fas fa-angle-right"></i>
+                                                                </span>
+                                                            </li>
+                                                        @endif
+                                                    </ul>
+                                                </nav>
+                                            </div>
+                                        </div>
+                                    </div>
+                                @else
+                                    <!-- Info pagination histori tanpa pagination -->
+                                    @if ($barangKeluar->total() > 0)
+                                        <div class="mt-3">
+                                            <small class="text-muted">
+                                                Menampilkan {{ $barangKeluar->total() }} data histori
+                                            </small>
+                                        </div>
+                                    @endif
+                                @endif
                             </div>
 
                             <!-- Tab untuk ringkasan bulanan barang keluar -->
@@ -148,7 +227,8 @@
                                 role="tabpanel" aria-labelledby="ringkasan-tab">
                                 <h5 class="mb-3">
                                     Ringkasan Barang Keluar Bulan {{ $namaBulan[$bulan] ?? '' }} {{ $tahun }}
-                                    <small class="text-muted">(Total {{ $totalHariAktif }} hari aktif)</small>
+                                    <small class="text-muted">(Total {{ $totalHariAktif }} hari aktif -
+                                        {{ $barangKeluarBulanan->total() }} jenis barang)</small>
                                 </h5>
                                 <div class="table-responsive">
                                     <table class="table table-bordered table-striped">
@@ -166,7 +246,8 @@
                                         <tbody>
                                             @forelse ($barangKeluarBulanan as $index => $item)
                                                 <tr>
-                                                    <td>{{ $index + 1 }}</td>
+                                                    <td>{{ ($barangKeluarBulanan->currentPage() - 1) * $barangKeluarBulanan->perPage() + $index + 1 }}
+                                                    </td>
                                                     <td>{{ $item->nama_barang }}</td>
                                                     <td>{{ $item->merek }}</td>
                                                     <td>{{ $item->total_jumlah }} {{ $item->satuan }}</td>
@@ -187,7 +268,7 @@
                                         @if (count($barangKeluarBulanan) > 0)
                                             <tfoot>
                                                 <tr class="bg-light font-weight-bold">
-                                                    <td colspan="3" class="text-right">Total:</td>
+                                                    <td colspan="3" class="text-right">Total Keseluruhan:</td>
                                                     <td>{{ $totalJumlah }}</td>
                                                     <td>{{ $totalRataPerHari }}/hari</td>
                                                     <td>Rp {{ number_format($totalHarga, 0, ',', '.') }}</td>
@@ -197,6 +278,83 @@
                                         @endif
                                     </table>
                                 </div>
+
+                                <!-- Pagination untuk ringkasan -->
+                                @if ($barangKeluarBulanan->hasPages())
+                                    <div class="row mt-4">
+                                        <div class="col-md-6">
+                                            <div class="dataTables_info">
+                                                <small class="text-muted">
+                                                    Menampilkan {{ $barangKeluarBulanan->firstItem() }} sampai
+                                                    {{ $barangKeluarBulanan->lastItem() }}
+                                                    dari {{ $barangKeluarBulanan->total() }} jenis barang
+                                                </small>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <div class="dataTables_paginate paging_simple_numbers float-right">
+                                                <nav aria-label="Pagination Navigation">
+                                                    <ul class="pagination pagination-sm justify-content-end mb-0">
+                                                        {{-- Previous Page Link --}}
+                                                        @if ($barangKeluarBulanan->onFirstPage())
+                                                            <li class="page-item disabled">
+                                                                <span class="page-link">
+                                                                    <i class="fas fa-angle-left"></i>
+                                                                </span>
+                                                            </li>
+                                                        @else
+                                                            <li class="page-item">
+                                                                <a class="page-link"
+                                                                    href="{{ $barangKeluarBulanan->previousPageUrl() }}">
+                                                                    <i class="fas fa-angle-left"></i>
+                                                                </a>
+                                                            </li>
+                                                        @endif
+
+                                                        {{-- Pagination Elements --}}
+                                                        @foreach ($barangKeluarBulanan->getUrlRange(1, $barangKeluarBulanan->lastPage()) as $page => $url)
+                                                            @if ($page == $barangKeluarBulanan->currentPage())
+                                                                <li class="page-item active">
+                                                                    <span class="page-link">{{ $page }}</span>
+                                                                </li>
+                                                            @else
+                                                                <li class="page-item">
+                                                                    <a class="page-link"
+                                                                        href="{{ $url }}">{{ $page }}</a>
+                                                                </li>
+                                                            @endif
+                                                        @endforeach
+
+                                                        {{-- Next Page Link --}}
+                                                        @if ($barangKeluarBulanan->hasMorePages())
+                                                            <li class="page-item">
+                                                                <a class="page-link"
+                                                                    href="{{ $barangKeluarBulanan->nextPageUrl() }}">
+                                                                    <i class="fas fa-angle-right"></i>
+                                                                </a>
+                                                            </li>
+                                                        @else
+                                                            <li class="page-item disabled">
+                                                                <span class="page-link">
+                                                                    <i class="fas fa-angle-right"></i>
+                                                                </span>
+                                                            </li>
+                                                        @endif
+                                                    </ul>
+                                                </nav>
+                                            </div>
+                                        </div>
+                                    </div>
+                                @else
+                                    <!-- Info pagination ringkasan tanpa pagination -->
+                                    @if ($barangKeluarBulanan->total() > 0)
+                                        <div class="mt-3">
+                                            <small class="text-muted">
+                                                Menampilkan {{ $barangKeluarBulanan->total() }} jenis barang
+                                            </small>
+                                        </div>
+                                    @endif
+                                @endif
                             </div>
                         </div>
                     </div>
