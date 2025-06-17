@@ -12,6 +12,7 @@ use App\Http\Controllers\BarangKeluarController;
 use App\Http\Controllers\SafetyStockController;
 use App\Http\Controllers\ReorderPointController;
 use App\Http\Controllers\ReportController;
+use App\Http\Controllers\TemplateController;
 use App\Http\Controllers\WhatsAppController;
 
 /*
@@ -79,6 +80,9 @@ Route::middleware(['auth', 'role:admin'])->group(function () {
     Route::get('/barang-keluar/{barangKeluar}', [BarangKeluarController::class, 'show'])->name('barang-keluar.show');
     Route::get('/barang-keluar/get-barang', [BarangKeluarController::class, 'getBarang'])->name('barang-keluar.get-barang');
     Route::get('/barang-keluar/laporan', [BarangKeluarController::class, 'laporan'])->name('barang-keluar.laporan');
+    Route::get('/barang-keluar/export', [BarangKeluarController::class, 'export'])->name('barang-keluar.export');
+    Route::get('/download-template', [TemplateController::class, 'downloadTemplate'])->name('download.template');
+    Route::post('/barang-keluar/import', [BarangKeluarController::class, 'import'])->name('barang-keluar.import');
 
     // Safety Stock Management
     Route::get('/safety-stock', [SafetyStockController::class, 'index'])->name('safety-stock.index');

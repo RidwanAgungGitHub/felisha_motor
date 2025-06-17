@@ -4,9 +4,13 @@ namespace App\Http\Controllers;
 
 use App\Models\Barang;
 use App\Models\BarangKeluar;
+use App\Exports\BarangKeluarExport; // TAMBAHKAN INI
+use App\Imports\BarangKeluarImport;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Auth;
+use Maatwebsite\Excel\Facades\Excel; // TAMBAHKAN INI
+use Symfony\Component\HttpFoundation\StreamedResponse;
 use Carbon\Carbon;
 
 class BarangKeluarController extends Controller
@@ -288,4 +292,74 @@ class BarangKeluarController extends Controller
 
         return view('barang_keluar.laporan', compact('data', 'laporan'));
     }
+
+    public function export(Request $request)
+{
+    $bulan = $request->input('bulan', now()->format('m'));
+    $tahun = $request->input('tahun', now()->format('Y'));
+
+    $namaBulan = [
+        '01' => 'Januari', '02' => 'Februari', '03' => 'Maret', '04' => 'April',
+        '05' => 'Mei', '06' => 'Juni', '07' => 'Juli', '08' => 'Agustus',
+        '09' => 'September', '10' => 'Oktober', '11' => 'November', '12' => 'Desember',
+    ];
+
+    $fileName = 'Histori_Barang_Keluar_' . $namaBulan[$bulan] . '_' . $tahun . '.xlsx';
+
+    return Excel::download(new BarangKeluarExport($bulan, $tahun), $fileName);
+}
+
+// Method untuk import
+public function import(Request $request)
+{
+    $request->validate([
+        'file' => 'required|mimes:xlsx,xls,csv|max:2048'
+    ], [
+        'file.required' => 'File wajib dipilih',
+        'file.mimes' => 'File harus berformat .xlsx, .xls, atau .csv',
+        'file.max' => 'Ukuran file maksimal 2MB'
+    ]);
+
+    try {
+        $import = new BarangKeluarImport();
+        Excel::import($import, $request->file('file'));
+
+        $summary = $import->getSummary();
+
+        if ($summary['success_count'] > 0) {
+            $message = "Import berhasil! {$summary['success_count']} data berhasil diimport";
+
+            if ($summary['failed_count'] > 0) {
+                $message .= ", {$summary['failed_count']} data gagal diimport.";
+                return redirect()->back()
+                    ->with('success', $message)
+                    ->with('import_errors', $summary['errors']);
+            }
+
+            return redirect()->back()->with('success', $message);
+        } else {
+            return redirect()->back()
+                ->with('error', 'Tidak ada data yang berhasil diimport')
+                ->with('import_errors', $summary['errors']);
+        }
+
+    } catch (\Maatwebsite\Excel\Validators\ValidationException $e) {
+        $failures = $e->failures();
+        $errors = [];
+
+        foreach ($failures as $failure) {
+            $errors[] = "Baris {$failure->row()}: " . implode(', ', $failure->errors());
+        }
+
+        return redirect()->back()
+            ->with('error', 'Validasi gagal')
+            ->with('import_errors', $errors);
+
+    } catch (\Exception $e) {
+        \Log::error('Error import barang keluar: ' . $e->getMessage());
+
+        return redirect()->back()
+            ->with('error', 'Error saat import: ' . $e->getMessage());
+    }
+}
 }

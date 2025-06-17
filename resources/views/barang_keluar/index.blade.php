@@ -54,17 +54,98 @@
 
                             <!-- Tombol Filter -->
                             <div class="col-md-6 mb-3">
-                                <button type="submit" class="btn btn-primary" name="tab"
-                                    value="{{ $activeTab ?? 'histori' }}">
+                                <button type="submit" class="btn btn-primary" name="tab" value="{{ $activeTab ?? 'histori' }}">
                                     <i class="fas fa-filter"></i> Filter
                                 </button>
                                 <a href="{{ route('barang-keluar.index') }}" class="btn btn-secondary">
                                     <i class="fas fa-sync"></i> Reset
                                 </a>
+                                <!-- TAMBAHKAN TOMBOL EXPORT INI -->
+                                <a href="{{ route('barang-keluar.export', ['bulan' => $bulan, 'tahun' => $tahun]) }}" class="btn btn-success">
+                                    <i class="fas fa-file-excel"></i> Export Excel
+                                </a>
                             </div>
                         </form>
                     </div>
                 </div>
+
+                    <div class="card mb-4">
+                <div class="card-header">
+                    <h5 class="mb-0">Import Data Barang Keluar</h5>
+                </div>
+                <div class="card-body">
+                    <!-- Alert untuk success -->
+                    @if(session('success'))
+                        <div class="alert alert-success alert-dismissible fade show" role="alert">
+                            <i class="fas fa-check-circle"></i> {{ session('success') }}
+                            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                        </div>
+                    @endif
+
+                    <!-- Alert untuk error -->
+                    @if(session('error'))
+                        <div class="alert alert-danger alert-dismissible fade show" role="alert">
+                            <i class="fas fa-exclamation-circle"></i> {{ session('error') }}
+                            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                        </div>
+                    @endif
+
+                    <!-- Form Import -->
+                    <form action="{{ route('barang-keluar.import') }}" method="POST" enctype="multipart/form-data" class="row align-items-end">
+                        @csrf
+                        <div class="col-md-6 mb-3">
+                            <label for="file" class="form-label">Pilih File Excel</label>
+                            <input type="file" name="file" id="file" class="form-control @error('file') is-invalid @enderror"
+                                accept=".xlsx,.xls,.csv" required>
+                            <small class="form-text text-muted">
+                                Format yang didukung: .xlsx, .xls, .csv (Max: 2MB)
+                            </small>
+                            @error('file')
+                                <div class="invalid-feedback">{{ $message }}</div>
+                            @enderror
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <button type="submit" class="btn btn-primary me-2">
+                                <i class="fas fa-upload"></i> Import Excel
+                            </button>
+                            <a href="{{ route('download.template') }}" class="btn btn-info">
+                                <i class="fas fa-download"></i> Download Template
+                            </a>
+                        </div>
+                    </form>
+
+                    <!-- Panduan Import -->
+                    <div class="mt-3">
+                        <h6><i class="fas fa-info-circle"></i> Panduan Import:</h6>
+                        <ul class="text-muted small">
+                            <li>Download template terlebih dahulu untuk format yang benar</li>
+                            <li>Pastikan nama barang dan merek sesuai dengan data di sistem</li>
+                            <li>Format tanggal: DD/MM/YYYY (contoh: 17/06/2025)</li>
+                            <li>Jumlah harus berupa angka dan tidak melebihi stok tersedia</li>
+                            <li>Kolom yang wajib diisi: nama_barang, merek, jumlah, tanggal</li>
+                        </ul>
+                    </div>
+
+                    <!-- Error Import -->
+                    @if(session('import_errors'))
+                        <div class="alert alert-warning mt-3">
+                            <h6><i class="fas fa-exclamation-triangle"></i> Detail Error Import:</h6>
+                            <div class="max-height-200 overflow-auto">
+                                <ul class="mb-0 small">
+                                    @foreach(session('import_errors') as $error)
+                                        <li>{{ $error }}</li>
+                                    @endforeach
+                                </ul>
+                            </div>
+                        </div>
+                    @endif
+                </div>
+            </div>
+            <style>
+            .max-height-200 {
+                max-height: 200px;
+            }
+            </style>
 
                 <!-- Card dengan tab untuk histori dan ringkasan barang keluar -->
                 <div class="card">
